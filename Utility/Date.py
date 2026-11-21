@@ -1,0 +1,84 @@
+import holidays as h
+from datetime import date
+from dateutil.relativedelta import relativedelta
+
+"""
+한국거래소 KRX: XKRX
+상하이거래소 SSE: XSHG
+홍콩거래소 HKEX: XHKG
+뉴욕거래소 NYSE: XNYS
+일본거래소 JPX: XJPX
+런던거래소 LSE: XLON
+프랑크푸르트거래소 FWB: XETR
+"""
+
+
+def ConvDate(dateParam):
+    if type(dateParam) == int:
+        dateParam = str(dateParam)
+    if len(dateParam) == 10 and dateParam[4] == "-" and dateParam[7] == "-":
+        convertedDate = date(
+            int(dateParam[0:4]), int(dateParam[5:7]), int(dateParam[8:10])
+        )
+    else:
+        convertedDate = date(
+            int(dateParam[0:4]), int(dateParam[4:6]), int(dateParam[6:8])
+        )
+    return convertedDate
+
+
+def TimeToMaturity(startDate, endDate, conv="ACT"):
+    if type(conv) == int:
+        conv = str(conv)
+    conv = conv.upper()
+
+    startDate = ConvDate(startDate)
+    endDate = ConvDate(endDate)
+
+    if conv == "365":
+        return (endDate - startDate).days / 365
+    elif conv == "360":
+        return (endDate - startDate).days / 360
+    elif conv == "ACT":
+        if endDate.year == startDate.year:
+            return (endDate - startDate).days / (
+                date(endDate.year + 1, 1, 1) - date(startDate.year, 1, 1)
+            ).days
+        else:
+            yearDiff = endDate.year - startDate.year - 1
+            endPeriod = (endDate - date(endDate.year, 1, 1)).days / (
+                date(endDate.year + 1, 1, 1) - date(endDate.year, 1, 1)
+            ).days
+            startPeriod = (date(startDate.year + 1, 1, 1) - startDate).days / (
+                date(startDate.year + 1, 1, 1) - date(startDate.year, 1, 1)
+            ).days
+            totalPeriod = startPeriod + yearDiff + endPeriod
+            return totalPeriod
+
+
+def MakeSchedule(startDate, endDate, yearlyCpnNums, stub="S"):
+    # 만기일로부터 역산하여 쿠폰 스케쥴 날짜 생성하는 것이 핵심
+    stub = stub.upper()
+    convStart = ConvDate(startDate)
+    convEnd = ConvDate(endDate)
+
+    if yearlyCpnNums not in [1, 2, 4, 6, 12]:
+        raise ValueError("Incorrect Coupon Numbers")
+    scheduleList = []
+    i = 1
+    scheduleList.append(convEnd)
+    while scheduleList[-1] > convStart:
+        scheduleList.append(
+            scheduleList[0] - relativedelta(months=int(12 / yearlyCpnNums * i))
+        )
+        i += 1
+
+    scheduleList.sort()
+
+    if scheduleList[0] != convStart:
+        scheduleList[0] = convStart
+        if stub == "L":
+            if scheduleList[1] != convEnd:
+                scheduleList.pop(1)
+
+    return scheduleList
