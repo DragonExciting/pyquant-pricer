@@ -1,5 +1,5 @@
 from ..Utility.Math import CND, log, sqrt, exp
-from numpy import zeros, arange, maximum
+from numpy import arange, maximum
 
 
 def EuropeanOption(S, K, T, R, sigma, Q=0.0, isCall=True):
