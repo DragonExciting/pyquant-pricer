@@ -33,9 +33,8 @@ def ConvDate(dateParam):
     return convertedDate
 
 
-@lru_cache
+@lru_cache  # 동일 인풋 조합이면 기존 임시저장된 값을 반환하며 계산량 줄임
 def LoadHoliday(exchange, year):
-    # 동일 인풋 조합이면 기존 임시저장된 값을 반환하며 계산량 줄임
     return frozenset(financial_holidays(market=exchange, years=year).keys())
 
 
