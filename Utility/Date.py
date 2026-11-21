@@ -1,6 +1,7 @@
-import holidays as h
-from datetime import date, datetime
+from holidays import financial_holidays
+from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
+from functools import lru_cache
 
 """
 한국거래소 KRX: XKRX
@@ -31,10 +32,54 @@ def ConvDate(dateParam):
     return convertedDate
 
 
-def TimeToMaturity(startDate, endDate, conv="ACT"):
+# 동일 인풋 조합이면 기존 임시저장된 값을 반환함
+@lru_cache
+def LoadHoliday(exchange, year):
+    return frozenset(financial_holidays(market=exchange, years=year).keys())
+
+
+def IsHoliday(dateParam, exchange="XKRX"):
+    exchange = exchange.upper()
+    convDate = ConvDate(dateParam)
+    weekday = convDate.isoweekday()
+    exchangeHoliday = LoadHoliday(exchange=exchange, year=convDate.year)
+    if weekday > 5 or convDate in exchangeHoliday:
+        return True
+    else:
+        return False
+
+
+def AdjustHoliday(dateParam, exchange="XKRX", convention="MF"):
+    convention = convention.upper()
+    if convention not in ("F", "MF", "P"):
+        raise ValueError("Incorrect Convention")
+    convDate = ConvDate(dateParam)
+
+    if convention == "F":
+        while IsHoliday(convDate, exchange=exchange):
+            convDate += timedelta(days=1)
+        return convDate
+    elif convention == "MF":
+        while IsHoliday(convDate, exchange=exchange):
+            prevDate = convDate
+            convDate += timedelta(days=1)
+            if prevDate.month != convDate.month:
+                while IsHoliday(prevDate, exchange=exchange):
+                    prevDate -= timedelta(days=1)
+                return prevDate
+        return convDate
+    elif convention == "P":
+        while IsHoliday(convDate, exchange=exchange):
+            convDate -= timedelta(days=1)
+        return convDate
+
+
+def Time2Mat(startDate, endDate, conv="ACT"):
+    conv = conv.upper()
     if type(conv) == int:
         conv = str(conv)
-    conv = conv.upper()
+    if conv not in ("ACT", "365", "360"):
+        raise ValueError("Incorrect Convention")
 
     startDate = ConvDate(startDate)
     endDate = ConvDate(endDate)
@@ -60,11 +105,16 @@ def TimeToMaturity(startDate, endDate, conv="ACT"):
             return totalPeriod
 
 
-def MakeSchedule(startDate, endDate, yearlyCpnNums, stub="S"):
+def MakeSchedule(
+    startDate, endDate, yearlyCpnNums, stub="L", exchange="XKRX", convention="MF"
+):
     # 만기일로부터 역산하여 쿠폰 스케쥴 날짜 생성하는 것이 핵심
     stub = stub.upper()
     convStart = ConvDate(startDate)
     convEnd = ConvDate(endDate)
+
+    if convStart >= convEnd:
+        raise ValueError("Incorrect Start Date and End Date")
 
     if yearlyCpnNums not in [1, 2, 4, 6, 12]:
         raise ValueError("Incorrect Coupon Numbers")
@@ -84,5 +134,33 @@ def MakeSchedule(startDate, endDate, yearlyCpnNums, stub="S"):
         if stub == "L":
             if scheduleList[1] != convEnd:
                 scheduleList.pop(1)
+    adjustedSchedule = []
+    for j in range(len(scheduleList)):
+        adjustedSchedule.append(
+            AdjustHoliday(scheduleList[j], exchange=exchange, convention=convention)
+        )
+    adjustedSchedule[0] = scheduleList[0]
 
-    return scheduleList
+    return scheduleList, adjustedSchedule
+
+
+def AddBizDay(dateParam, offset, exchange="XKRX", convention="MF"):
+    convDate = ConvDate(dateParam)
+    bizDayCount = 0
+    if offset == 0:
+        convDate = AdjustHoliday(convDate, exchange=exchange, convention=convention)
+        return convDate
+    else:
+        while bizDayCount != abs(offset):
+            if offset > 0:
+                convDate += timedelta(days=1)
+            elif offset < 0:
+                convDate -= timedelta(days=1)
+            if not IsHoliday(convDate, exchange=exchange):
+                bizDayCount += 1
+        return convDate
+
+
+if __name__ == "__main__":
+    # 테스트
+    print(MakeSchedule("20260328", "20270330", 1))
