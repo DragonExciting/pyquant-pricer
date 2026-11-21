@@ -1,5 +1,4 @@
 from math import sqrt, pi, exp, cos, sin, log
-from random import random
 from time import time
 
 
