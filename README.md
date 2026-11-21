@@ -58,11 +58,3 @@ pip install -r requirements.txt
 ```
 
 Python 3.13에서 테스트했습니다.
-
-## 앞으로 할 일
-
-- [ ] `HolidayAdjust`: 거래소 휴일 기준 영업일 조정 (Following, Modified Following)
-- [ ] 금리 커브 부트스트래핑
-- [ ] 채권 가격, Duration, Convexity
-- [ ] Black-Scholes 옵션 가격과 Greeks
-- [ ] 단위 테스트 (`tests/`)
