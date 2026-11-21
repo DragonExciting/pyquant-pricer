@@ -1,5 +1,5 @@
 import holidays as h
-from datetime import date
+from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 
 """
@@ -14,6 +14,10 @@ from dateutil.relativedelta import relativedelta
 
 
 def ConvDate(dateParam):
+    if isinstance(dateParam, datetime):
+        return dateParam.date()
+    if isinstance(dateParam, date):
+        return dateParam
     if type(dateParam) == int:
         dateParam = str(dateParam)
     if len(dateParam) == 10 and dateParam[4] == "-" and dateParam[7] == "-":
