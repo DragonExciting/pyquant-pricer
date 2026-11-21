@@ -15,6 +15,7 @@ from functools import lru_cache
 
 
 def ConvDate(dateParam):
+    # 날짜로 변환
     if isinstance(dateParam, datetime):
         return dateParam.date()
     if isinstance(dateParam, date):
@@ -32,9 +33,9 @@ def ConvDate(dateParam):
     return convertedDate
 
 
-# 동일 인풋 조합이면 기존 임시저장된 값을 반환함
 @lru_cache
 def LoadHoliday(exchange, year):
+    # 동일 인풋 조합이면 기존 임시저장된 값을 반환하며 계산량 줄임
     return frozenset(financial_holidays(market=exchange, years=year).keys())
 
 
@@ -75,6 +76,8 @@ def AdjustHoliday(dateParam, exchange="XKRX", convention="MF"):
 
 
 def Time2Mat(startDate, endDate, conv="ACT"):
+    # 30/360은 별도의 공식이 존재(2006 ISDA Definition 4.16(f))
+    # ACT/365F 추가 필요
     conv = conv.upper()
     if type(conv) == int:
         conv = str(conv)
@@ -108,7 +111,9 @@ def Time2Mat(startDate, endDate, conv="ACT"):
 def MakeSchedule(
     startDate, endDate, yearlyCpnNums, stub="L", exchange="XKRX", convention="MF"
 ):
+    # 현금흐름 날짜 생성
     # 만기일로부터 역산하여 쿠폰 스케쥴 날짜 생성하는 것이 핵심
+    # 쿠폰 계산일(달력일)과 지급일(영업일)의 괴리가 가능하기에 두개의 날짜 리스트로 반환
     stub = stub.upper()
     convStart = ConvDate(startDate)
     convEnd = ConvDate(endDate)
