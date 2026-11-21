@@ -44,7 +44,7 @@ https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform 참고
 
 
 def GenRnd():
-    # Numerical Recipes (Knuth and H. W. Lewis, 1986)
+    # Numerical Recipes (Knuth & H. W. Lewis, 1986)
     # 사용자 시드에 따른 난수생성 기능 추가 필요
     setSeed = int(time() * 1_000_000) % 2**32
     m = 2**32
