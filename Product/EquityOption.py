@@ -23,6 +23,9 @@ def EuropeanOption(S, K, T, R, sigma, Q=0.0, isCall=True):
 
 def AmericanOption(S, K, T, R, sigma, Q=0.0, isCall=True, N=252):
     # Option pricing: A simplified approach (Cox & Ross & Rubinstein, 1979)
+    if sigma <= 0 or S <= 0 or N <= 0 or T <= 0:
+        raise ValueError("Incorrect Input")
+
     dT = T / N
     u = exp(sigma * sqrt(dT))
     d = 1 / u
