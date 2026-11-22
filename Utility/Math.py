@@ -1,4 +1,17 @@
-from math import sqrt, pi, exp, cos, sin, log
+from numpy import (
+    array,
+    cumsum,
+    hstack,
+    vstack,
+    sqrt,
+    pi,
+    exp,
+    cos,
+    sin,
+    log,
+    prod,
+    zeros,
+)
 from time import time
 
 
@@ -44,26 +57,65 @@ https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform 참고
 
 
 def GenRnd():
-    # Numerical Recipes (Knuth & H. W. Lewis, 1986)
+    # ANSI C: Watcom
     # 사용자 시드에 따른 난수생성 기능 추가 필요
     setSeed = int(time() * 1_000_000) % 2**32
-    m = 2**32
-    a = 1664525
-    c = 1013904223
+    m = 2**31
+    a = 1103515245
+    c = 12345
     rnd1 = (setSeed * a + c) % m
     rnd2 = (rnd1 * a + c) % m
     return max(rnd1 / m, 1e-8), max(rnd2 / m, 1e-8)
 
 
-def BoxMullerRnd():
+def BoxMullerRnd(shape=1):
     # A Note on the Generation of Random Normal Deviates (Box & Muller, 1958)
-    # 두개의 정규난수 반환
-    uniRnd1, uniRnd2 = GenRnd()
-    normRnd1 = sqrt(-2 * log(uniRnd1)) * cos(2 * pi * uniRnd2)
-    normRnd2 = sqrt(-2 * log(uniRnd1)) * sin(2 * pi * uniRnd2)
-    return normRnd1, normRnd2
+    # 사용자가 원하는 Numpy array 형태로 정규난수 반환
+    if isinstance(shape, int):
+        shape = (shape,)  # 쉼표를 넣어야 튜플형태로 인식함
+    else:
+        shape = tuple(shape)
+    N = prod(shape)  # 생성해야할 총 난수
+    nPair = N // 2  # 생성해야할 총 횟수(2개씩 생성)
+
+    rndSpace = []
+    for _ in range(nPair):
+        uniRnd1, uniRnd2 = GenRnd()
+
+        normRnd1 = sqrt(-2 * log(uniRnd1)) * cos(2 * pi * uniRnd2)
+        normRnd2 = sqrt(-2 * log(uniRnd1)) * sin(2 * pi * uniRnd2)
+        rndSpace.append((normRnd1, normRnd2))
+    rndArray = array(rndSpace).ravel()[:N].reshape(shape)
+    # .ravel() 1차원으로 펼침
+    # N이 홀수인 경우, 생성된 쌍은 N+1개 이므로 [:N]을 통해 마지막 1개를 제거해야 reshape에서 오류 미발생
+    return rndArray
+
+
+"""
+몬테 카를로 시뮬레이션
+https://en.wikipedia.org/wiki/Monte_Carlo_method 참고
+
+숄레츠키 분해
+https://en.wikipedia.org/wiki/Cholesky_decomposition 참고
+"""
+
+
+# 블랙숄즈 기반 몬테카를로 시뮬레이션
+def SingleMC(S, T, R, sigma, Q=0.0, N=252, numsSim=10_000):
+    if sigma <= 0 or S <= 0 or T < 0:
+        raise ValueError("Incorrect Input")
+    totalStep = max(int(round(T * N)), 1)
+    dT = T / totalStep
+    # 분산감소기법: Antithetic
+    rndSpace = BoxMullerRnd((int(numsSim / 2), totalStep))
+    antiSpace = -rndSpace
+    antithetic = vstack((rndSpace, antiSpace))
+    # 로그 수익률을 사용하여 블랙숄즈 변화분을 덧셈 형태로 변환
+    logReturn = (R - Q - 0.5 * sigma**2) * dT + sigma * sqrt(dT) * antithetic
+    logPath = hstack([zeros([(int(numsSim / 2) * 2), 1]), cumsum(logReturn, axis=1)])
+    path = S * exp(logPath)
+    return path
 
 
 if __name__ == "__main__":
-    print(BoxMullerRnd())
-    print(GenRnd())
+    print(SingleMC(100, 1.0, 0.03, 0.2))

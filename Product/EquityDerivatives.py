@@ -31,22 +31,23 @@ def AmericanOption(S, K, T, R, sigma, Q=0.0, isCall=True, N=252):
         else:
             return max(K - S, 0)
     elif T > 0:
-        dT = T / N
+        step = max(int(round(N * T)), 1)
+        dT = T / step
         u = exp(sigma * sqrt(dT))
         d = 1 / u
         p = (exp((R - Q) * dT) - d) / (u - d)
         df = exp(-R * dT)  # 할인계수
 
         j = arange(
-            N + 1
+            step + 1
         )  # j = 상승 횟수 0 ~ N, arange: 균등간격 1차원 넘파이 배열 반환
         if isCall:
-            optValue = maximum(S * u**j * d ** (N - j) - K, 0.0)
+            optValue = maximum(S * u**j * d ** (step - j) - K, 0.0)
         else:
-            optValue = maximum(K - S * u**j * d ** (N - j), 0.0)
+            optValue = maximum(K - S * u**j * d ** (step - j), 0.0)
             # 만기시점의 옵션 가치
 
-        for i in range(N - 1, -1, -1):
+        for i in range(step - 1, -1, -1):
             # Backward Induction
             j = arange(i + 1)
             Si = S * u**j * d ** (i - j)
