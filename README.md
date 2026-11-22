@@ -7,22 +7,28 @@ Python으로 직접 구현하는 금융상품 프라이싱 및 리스크 라이�
 
 | 모듈 | 역할 | 상태 |
 |---|---|---|
-| `Utility` | 날짜·영업일 처리, Day Count Convention, 쿠폰 스케줄, 정규분포 함수, 난수 생성 | 진행 중 |
-| `Core` | 상품과 무관한 수치 엔진 (이항트리, 몬테카를로 경로 생성) | 진행 중 |
-| `Product` | 개별 상품 평가 (현재 주식 옵션) | 진행 중 |
+| `Utility` | 날짜·영업일 처리, Day Count Convention, 쿠폰 스케줄, 정규분포 함수, 난수 생성, 숄레츠키 분해 | 진행 중 |
+| `Core` | 상품과 무관한 수치 엔진 (이항트리, 단일/다자산 몬테카를로 경로 생성) | 진행 중 |
+| `Product` | 개별 상품 평가 (주식 옵션, FX 옵션, 디지털 옵션) | 진행 중 |
+| `DB` | 시장 데이터 DB 연결 (MySQL) | 착수 |
 | `Market` | 금리 커브, 변동성 등 시장 데이터 | 예정 |
 | `Risk` | 민감도(Greeks, Duration), VaR | 예정 |
 
 ```
 pyquant-pricer/
 ├── Utility/
-│   ├── Date.py               # 날짜 변환, 휴일/영업일, Day Count, 쿠폰 스케줄
-│   └── Math.py               # 정규분포, 유사난수, Box-Muller
+│   ├── Date.py         # 날짜 변환, 휴일/영업일, Day Count, 쿠폰 스케줄
+│   └── Math.py         # 정규분포, 유사난수(LCG), Box-Muller, 숄레츠키 분해
 ├── Core/
-│   ├── Tree.py               # CRR 이항트리 엔진 (payoff 함수를 받아 후진귀납)
-│   └── MC.py                 # GBM 몬테카를로 경로 생성
-└── Product/
-    └── EquityDerivatives.py  # 주식 옵션 (Black-Scholes 해석해, 이항트리)
+│   ├── Tree.py         # CRR 이항트리 엔진 (payoff 함수를 받아 후진귀납)
+│   └── MC.py           # GBM 몬테카를로 경로 생성 (단일/다자산, FX)
+├── Product/
+│   ├── BSOption.py     # Black-Scholes 해석해 (바닐라, 디지털)
+│   ├── CRROption.py    # 이항트리 바닐라 옵션 (아메리칸/유러피안)
+│   └── FXOption.py     # Garman-Kohlhagen FX 옵션
+├── DB/
+│   └── DBConn.py       # DB 연결 (작업 중)
+└── main.py             # 실행/테스트용 스크립트
 ```
 
 의존 방향은 `Utility ← Core ← Product` 한 방향입니다.
@@ -30,6 +36,7 @@ pyquant-pricer/
 - **Core**는 *어떻게 계산하는가*(수치 방법)만 담당하고, 행사가·콜/풋 같은 계약 조건은 모릅니다.
 - **Product**는 *무엇을 계산하는가*(payoff, 행사 규칙)를 정의하고, payoff를 **함수 객체**로 Core 엔진에 넘깁니다.
 - 덕분에 같은 엔진으로 유러피안·아메리칸을 모두 계산하고, 새 상품은 payoff만 추가하면 됩니다.
+- `Product`는 **계산 방법별 모듈**로 나뉘고, 모듈마다 같은 이름의 함수(`VanillaPayoff` 등)를 둡니다. 모듈 이름으로 구분해서 호출합니다. (예: `BSOption.VanillaPayoff`, `CRROption.VanillaPayoff`)
 
 ## 구현된 기능
 
@@ -68,7 +75,8 @@ pyquant-pricer/
 | `CND(x)` | 표준정규분포 누적분포함수 (Abramowitz & Stegun 근사) |
 | `SetSeed(seed=None)` | 난수 시드 설정 (`None`이면 현재 시각, 정수면 재현 가능한 난수열) |
 | `GenRnd()` | 선형합동생성기(LCG)로 `(0, 1)` 균등난수 2개 생성 |
-| `BoxMullerRnd(shape=1)` | Box-Muller 변환으로 원하는 shape의 표준정규난수 배열 생성 |
+| `BoxMullerRnd(shape=1)` | Box-Muller 변환으로 원하는 shape의 표준정규난수 배열 생성 (`int` 또는 `tuple`) |
+| `Cholesky(corr)` | 상관행렬을 하삼각행렬 $L$로 분해 ($\rho = LL^T$), 직접 구현 |
 
 - `CND`: Abramowitz & Stegun (1964) 다항 근사, 오차 약 $10^{-7}$ 수준
 
@@ -78,6 +86,11 @@ $$N(x) \approx 1 - \phi(x)\,(a_1 t + a_2 t^2 + a_3 t^3 + a_4 t^4 + a_5 t^5), \qu
 - `BoxMullerRnd`: 균등난수 $U_1, U_2$로부터
 
 $$Z_1 = \sqrt{-2\ln U_1}\cos(2\pi U_2), \quad Z_2 = \sqrt{-2\ln U_1}\sin(2\pi U_2)$$
+
+- `Cholesky`: $\rho_{ij}$는 $L$의 i행과 j행의 내적이라는 점을 이용해, 위에서 아래로·왼쪽에서 오른쪽으로 한 원소씩 구합니다. 대각선에서 제곱근 안이 0 이하이면 양의 정부호가 아니므로 `ValueError`를 냅니다.
+  - 3×3 손 계산 과정: [`Utility/하삼각행렬_수기계산.jpg`](Utility/하삼각행렬_수기계산.jpg)
+
+$$l_{ii} = \sqrt{\rho_{ii} - \sum_{k<i} l_{ik}^2}, \qquad l_{ij} = \frac{1}{l_{jj}}\left(\rho_{ij} - \sum_{k<j} l_{ik}\, l_{jk}\right) \quad (i > j)$$
 
 ### `Core/Tree.py`
 
@@ -95,35 +108,73 @@ $$u = e^{\sigma\sqrt{\Delta t}}, \quad d = 1/u, \quad p = \frac{e^{(R-Q)\Delta t
 
 | 함수 | 설명 |
 |---|---|
-| `SingleMC(S, T, R, sigma, Q=0.0, N=252, numsSim=10_000)` | 기하 브라운 운동(GBM) 주가 경로 시뮬레이션 |
+| `EQMonteCarlo(S, T, R, sigma, corr=None, Q=None, N=252, numsSim=10_000)` | 단일/다자산 범용 GBM 경로 시뮬레이션 (상관계수 반영) |
+| `FXMonteCarlo(S, T, R_d, R_f, sigma, N=252, numsSim=10_000)` | Garman-Kohlhagen 환율 경로 (`EQMonteCarlo`에 `R=R_d`, `Q=R_f`로 위임) |
+| `EQSingleMonteCarlo(S, T, R, sigma, Q=0.0, N=252, numsSim=10_000)` | 단일 자산 전용 (테스트·비교용, 2차원 반환) |
 
-- 로그 수익률을 누적해 경로를 생성하며, 분산감소기법으로 **Antithetic Variates**($Z$와 $-Z$ 쌍)를 사용합니다.
-- 반환값: shape `(numsSim, step + 1)`의 주가 경로 배열 (첫 열은 `S`), `step = round(T × N)`
-- 정규난수는 `Utility.Math.BoxMullerRnd`를 사용하므로 `SetSeed`로 재현할 수 있습니다.
+**입력**
 
-$$S_{t+\Delta t} = S_t \exp\left[\left(R - Q - \tfrac{1}{2}\sigma^2\right)\Delta t + \sigma\sqrt{\Delta t}\,Z\right]$$
+| 파라미터 | 형태 | 비고 |
+|---|---|---|
+| `S`, `sigma`, `Q` | 스칼라 또는 길이 n 배열 | 자산마다 다른 값. 스칼라는 길이 1 배열로 처리 |
+| `corr` | n×n 상관행렬 | 다자산이면 필수, 단일 자산이면 생략 시 `[[1.0]]` |
+| `R`, `T`, `N`, `numsSim` | 스칼라 | 모든 자산이 같은 할인율·시간축을 공유 |
 
-### `Product/EquityDerivatives.py`
+**계산 과정**
+
+1. 독립 표준정규난수 `Z`를 shape `(numsSim/2, step, n)`으로 생성 (`BoxMullerRnd`)
+2. **Antithetic Variates**: $Z$와 $-Z$를 이어 붙여 분산 감소
+3. **상관 부여**: `Z @ L.T` — 같은 시점의 자산끼리만 섞이고, 시점 간 독립성은 유지
+4. 자산별 drift·변동성을 브로드캐스팅으로 적용하고 시간 축(`axis=1`)으로 누적
+
+$$S^{(i)}_{t+\Delta t} = S^{(i)}_t \exp\left[\left(R - Q_i - \tfrac{1}{2}\sigma_i^2\right)\Delta t + \sigma_i\sqrt{\Delta t}\,W^{(i)}\right], \qquad W = LZ$$
+
+- 반환값: shape `(numsSim, step + 1, n)`의 경로 배열 (첫 시점은 `S`), `step = round(T × N)`. **단일 자산도 3차원**입니다.
+- 입력 검사: `S`, `sigma` ≤ 0 또는 `T` < 0, 배열 길이 불일치, `corr` 크기 불일치, 양의 정부호가 아닌 상관행렬이면 `ValueError`
+- `numsSim`이 홀수면 antithetic 쌍 구조 때문에 경로가 `numsSim − 1`개 생성됩니다.
+- 같은 시드에서 `EQMonteCarlo(..., n=1)`과 `EQSingleMonteCarlo`의 경로는 정확히 일치합니다.
+- FX의 `S`는 **외국 통화 1단위당 국내 통화 가격**입니다. (USD/KRW = 1,400이면 `R_d`=원화 금리, `R_f`=달러 금리)
+
+### `Product/BSOption.py`
 
 | 함수 | 설명 |
 |---|---|
-| `BSOption(S, K, T, R, sigma, Q=0.0, isCall=True)` | Black-Scholes(-Merton) 해석해, 연속 배당수익률 `Q` 반영 (유러피안) |
-| `BinomialOption(S, K, T, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True)` | `Core.Tree.CRRTree`로 계산하는 이항트리 가격 (아메리칸/유러피안 선택) |
+| `VanillaPayoff(S, K, T, R, sigma, Q=0.0, isCall=True)` | Black-Scholes(-Merton) 유러피안 옵션, 연속 배당수익률 `Q` 반영 |
+| `DigitalPayoff(S, K, T, R, sigma, cpn1, cpn2, Q=0.0)` | 디지털 옵션: 만기 주가가 `K` 초과면 `cpn2`, 이하면 `cpn1` 지급 |
 
-- `T == 0`이면 내재가치(Payoff)를 반환합니다.
-- 콜/풋은 `cpFlag`(콜 `+1`, 풋 `−1`)로 payoff를 $\max(\text{cpFlag}\cdot(S-K),\ 0)$ 한 식으로 표현합니다.
-- `BinomialOption(..., isAmerican=False)`는 스텝 수를 늘릴수록 `BSOption`으로 수렴하므로, 두 방법을 서로 검증하는 데 쓸 수 있습니다.
+- 콜/풋은 `cpFlag`(콜 `+1`, 풋 `−1`)로 하나의 식에 통합했습니다.
+- `T == 0`이면 내재가치(만기 지급액)를 반환합니다.
 
 $$d_1 = \frac{\ln(S/K) + (R - Q + \tfrac{1}{2}\sigma^2)T}{\sigma\sqrt{T}}, \quad d_2 = d_1 - \sigma\sqrt{T}$$
 
-$$C = S e^{-QT} N(d_1) - K e^{-RT} N(d_2), \quad P = K e^{-RT} N(-d_2) - S e^{-QT} N(-d_1)$$
+$$V_{vanilla} = \text{cpFlag}\cdot\left[S e^{-QT} N(\text{cpFlag}\cdot d_1) - K e^{-RT} N(\text{cpFlag}\cdot d_2)\right]$$
+
+$$V_{digital} = e^{-RT}\left[\text{cpn2}\cdot N(d_2) + \text{cpn1}\cdot N(-d_2)\right]$$
+
+### `Product/CRROption.py`
+
+| 함수 | 설명 |
+|---|---|
+| `VanillaPayoff(S, K, T, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True)` | `Core.Tree.CRRTree`로 계산하는 바닐라 옵션 (아메리칸/유러피안 선택) |
+
+- 함수 안에서 `K`와 `cpFlag`를 기억하는 payoff 함수(클로저)를 만들어 `CRRTree`에 넘깁니다.
+- `isAmerican=False`는 스텝 수를 늘릴수록 `BSOption.VanillaPayoff`로 수렴하므로, 두 방법을 서로 검증하는 데 쓸 수 있습니다.
+
+### `Product/FXOption.py`
+
+| 함수 | 설명 |
+|---|---|
+| `VanillaPayoff(S, K, T, R_d, R_f, sigma, isCall=True)` | Garman-Kohlhagen (1983) FX 유러피안 옵션 |
+
+- Black-Scholes에서 배당수익률 `Q` 자리에 외국 금리 `R_f`, 무위험금리 자리에 국내 금리 `R_d`가 들어간 형태입니다.
+
+$$V = \text{cpFlag}\cdot\left[S e^{-R_f T} N(\text{cpFlag}\cdot d_1) - K e^{-R_d T} N(\text{cpFlag}\cdot d_2)\right], \quad d_1 = \frac{\ln(S/K) + (R_d - R_f + \tfrac{1}{2}\sigma^2)T}{\sigma\sqrt{T}}$$
 
 ## 사용 예시
 
 ```python
 from Utility.Date import MakeSchedule, Time2Mat, AdjustHoliday, AddBizDay
-from Utility.Math import CND, SetSeed
-from Core.MC import SingleMC
+from Utility.Math import CND
 
 # 3년 만기, 분기 지급, 시작일이 쿠폰일과 어긋나는 경우 (Short front stub)
 calcDates, payDates = MakeSchedule(20240301, 20270115, 4, stub="S")
@@ -144,23 +195,50 @@ AddBizDay(20260130, 1)
 
 CND(1.96)
 # 0.97500...
-
-# GBM 경로 10,000개 × 253 시점 (시드 고정으로 재현 가능)
-SetSeed(42)
-paths = SingleMC(100, 1.0, 0.03, 0.2)
-paths.shape
-# (10000, 253)
 ```
 
 ```python
-from Product.EquityDerivatives import BSOption, BinomialOption
+from Product import BSOption, CRROption, FXOption
 
-BSOption(100, 100, 1.0, 0.03, 0.2)                     # 9.4134 (Call)
-BSOption(100, 100, 1.0, 0.03, 0.2, isCall=False)       # 6.4579 (Put)
+# Black-Scholes
+BSOption.VanillaPayoff(100, 100, 1.0, 0.03, 0.2)                 # 9.4134 (Call)
+BSOption.VanillaPayoff(100, 100, 1.0, 0.03, 0.2, isCall=False)   # 6.4579 (Put)
+BSOption.DigitalPayoff(100, 100, 1.0, 0.03, 0.2, 0, 10)          # 5.0457 (K 초과 시 10 지급)
 
-BinomialOption(100, 100, 1.0, 0.03, 0.2, isCall=False)                    # 6.7392 (아메리칸 풋, 조기행사 프리미엄 포함)
-BinomialOption(100, 100, 1.0, 0.03, 0.2, isCall=False, isAmerican=False)  # 6.4501 (유러피안 풋)
-BinomialOption(100, 100, 1.0, 0.03, 0.2, isCall=False, N=2000, isAmerican=False)  # 6.4570 → BS 값으로 수렴
+# 이항트리
+CRROption.VanillaPayoff(100, 100, 1.0, 0.03, 0.2, isCall=False)                    # 6.7392 (아메리칸 풋)
+CRROption.VanillaPayoff(100, 100, 1.0, 0.03, 0.2, isCall=False, isAmerican=False)  # 6.4501 (유러피안 풋)
+CRROption.VanillaPayoff(100, 100, 1.0, 0.03, 0.2, isCall=False, N=2000, isAmerican=False)  # 6.4570 → BS로 수렴
+
+# FX (USD/KRW 1,400, 원화 3%, 달러 4.5%, 변동성 10%)
+FXOption.VanillaPayoff(1400, 1400, 1.0, 0.03, 0.045, 0.1)                # 44.26 (Call)
+FXOption.VanillaPayoff(1400, 1400, 1.0, 0.03, 0.045, 0.1, isCall=False)  # 64.49 (Put)
+```
+
+```python
+from Utility.Math import SetSeed, Cholesky
+from Core.MC import EQMonteCarlo
+
+corr = [[1.0, 0.5, 0.3],
+        [0.5, 1.0, 0.4],
+        [0.3, 0.4, 1.0]]
+
+Cholesky(corr)
+# [[1.0,    0.0,    0.0   ],
+#  [0.5,    0.8660, 0.0   ],
+#  [0.3,    0.2887, 0.9092]]
+
+# 3자산 상관 경로 (시드 고정으로 재현 가능)
+SetSeed(42)
+paths = EQMonteCarlo(S=[100, 50, 200], T=1.0, R=0.03, sigma=[0.2, 0.3, 0.25],
+                     corr=corr, Q=[0.01, 0.0, 0.02])
+paths.shape
+# (10000, 253, 3)  ← (경로, 시점, 자산)
+# 로그수익률 상관계수 ≈ 0.499 / 0.299 / 0.398
+
+# 단일 자산은 corr 생략 가능
+EQMonteCarlo(100, 1.0, 0.03, 0.2, Q=0.01).shape
+# (10000, 253, 1)
 ```
 
 ```python
@@ -189,9 +267,10 @@ pip install -r requirements.txt
 ## TODO
 
 - `Time2Mat`: 30/360 (2006 ISDA Definitions 4.16(f)) 지원
-- `SingleMC` 경로에 payoff 함수를 적용하는 몬테카를로 프라이서 (`Core`)
-- 숄레츠키 분해를 이용한 다자산 상관 경로 생성
-- `Market` / `Risk` 모듈 구현
+- 경로에 payoff 함수를 적용해 할인 평균을 내는 범용 몬테카를로 프라이서 (`Core`)
+- 상품별 `Product` 구성: 스텝다운 ELS(낙인, 스노우볼 등 변형 포함)
+- `BoxMullerRnd` 속도 개선 (현재 Python 반복문 기반)
+- `DB` 시장 데이터 연결, `Market` / `Risk` 모듈 구현
 
 ## License
 
