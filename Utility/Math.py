@@ -1,4 +1,4 @@
-from numpy import array, sqrt, pi, exp, cos, sin, log, prod
+from numpy import array, sqrt, pi, exp, cos, sin, log, prod, zeros
 from time import time
 
 
@@ -52,7 +52,7 @@ _initNum = int(time() * 1_000_000) % _m
 
 
 def SetSeed(seed=None):
-    # seed=None이면 현재 시각(μs)으로 초기화, 정수를 주면 재현 가능한 난수열 생성
+    # seed=None이면 현재 시각으로 초기화, 정수를 주면 재현 가능한 난수열 생성
     global _initNum
     if seed is None:
         seed = int(time() * 1_000_000)
@@ -91,3 +91,38 @@ def BoxMullerRnd(shape: int | tuple[int, ...] = 1):
     # .ravel() 1차원으로 펼침
     # N이 홀수인 경우, 생성된 쌍은 N+1개 이므로 [:N]을 통해 마지막 1개를 제거해야 reshape에서 오류 미발생
     return rndArray
+
+
+r"""
+상관행렬을 하삼각행렬로 분해: corr = L L^T
+
+2자산 예시:
+    W_1 = Z_1
+    W_2 = \rho Z_1 + \sqrt{1-\rho^2} Z_2
+
+행렬의 대각선(i = j): sqrt(원래값 - 지금까지 구한 같은 행 원소들의 제곱합)
+대각선 아래(i > j)  : (원래값 - i행과 j행에서 이미 구한 부분의 내적)÷l_jj
+
+
+숄레츠키 분해
+https://en.wikipedia.org/wiki/Cholesky_decomposition 참고
+"""
+
+
+# 다자산용 숄레츠키 분해
+def Cholesky(corr):
+    n = len(corr)
+    L = zeros((n, n))
+
+    for i in range(n):  # 행: 위에서 아래로
+        for j in range(i + 1):  # 열: 왼쪽부터 대각선까지
+            s = corr[i][j] - L[i, :j] @ L[j, :j]
+            # L^T의 j열 = L의 j행 -> corr[i][j] 원소는 L의 i행과 j행의 내적
+            if i == j:
+                if s <= 0:
+                    # 양의 정부호 확인
+                    raise ValueError("Correlation matrix is not positive definite")
+                L[i, j] = sqrt(s)
+            else:
+                L[i, j] = s / L[j, j]
+    return L

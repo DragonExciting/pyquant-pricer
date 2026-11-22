@@ -1,3 +1,3 @@
-from Core.MC import EQSingleMonteCarlo
+from Core.MC import EQMonteCarlo
 
-print(EQSingleMonteCarlo(100, 1.0, 0.03, 0.2))
+print(EQMonteCarlo(100, 1, 0.03, 0.2, Q=0.01).shape)
