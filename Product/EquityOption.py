@@ -3,9 +3,9 @@ from numpy import arange, maximum
 
 
 def EuropeanOption(S, K, T, R, sigma, Q=0.0, isCall=True):
-    if sigma <= 0 or S <= 0:
+    if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
-    if 0 <= T < 1e-8:
+    if T < 1e-8:
         if isCall:
             return max(S - K, 0)
         else:
@@ -23,7 +23,7 @@ def EuropeanOption(S, K, T, R, sigma, Q=0.0, isCall=True):
 
 def AmericanOption(S, K, T, R, sigma, Q=0.0, isCall=True, N=252):
     # Option pricing: A simplified approach (Cox & Ross & Rubinstein, 1979)
-    if sigma <= 0 or S <= 0 or N <= 0 or T <= 0:
+    if sigma <= 0 or S <= 0 or N <= 0 or T < 0:
         raise ValueError("Incorrect Input")
 
     dT = T / N
@@ -32,7 +32,7 @@ def AmericanOption(S, K, T, R, sigma, Q=0.0, isCall=True, N=252):
     p = (exp((R - Q) * dT) - d) / (u - d)
     df = exp(-R * dT)  # 할인계수
 
-    j = arange(N + 1)  # 상승 횟수 0 ~ N
+    j = arange(N + 1)  # j = 상승 횟수 0 ~ N, arange: 균등간격 1차원 넘파이 배열 반환
     if isCall:
         optValue = maximum(S * u**j * d ** (N - j) - K, 0.0)
     else:
