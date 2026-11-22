@@ -73,11 +73,11 @@ def SetSeed(seed=None):
 
 def GenRnd():
     # ANSI C: Watcom
-    global _lcgState
-    _lcgState = (a * initNum + c) % m
+    global initNum
+    initNum = (a * initNum + c) % m
     rnd1 = initNum / m
-    _lcgState = (a * initNum + c) % m
-    rnd2 = _lcgState / m
+    initNum = (a * initNum + c) % m
+    rnd2 = initNum / m
     return max(rnd1, 1e-8), max(rnd2, 1e-8)
 
 
