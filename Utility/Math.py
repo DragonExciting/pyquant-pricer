@@ -57,27 +57,28 @@ https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform 참고
 
 
 # 선형합동생성기 상태: 호출 사이에 이어져야 난수열이 독립적으로 생성됨
-m = 2**31
-a = 1103515245
-c = 12345
-initNum = int(time() * 1_000_000) % m
+# _접두사를 붙이면 import * 전체 호출에서 가져오지 않음. _a로 개별 호출하면 불러와짐
+_m = 2**31
+_a = 1103515245
+_c = 12345
+_initNum = int(time() * 1_000_000) % _m
 
 
 def SetSeed(seed=None):
     # seed=None이면 현재 시각(μs)으로 초기화, 정수를 주면 재현 가능한 난수열 생성
-    global initNum
+    global _initNum
     if seed is None:
         seed = int(time() * 1_000_000)
-    initNum = int(seed) % m
+    _initNum = int(seed) % _m
 
 
 def GenRnd():
     # ANSI C: Watcom
-    global initNum
-    initNum = (a * initNum + c) % m
-    rnd1 = initNum / m
-    initNum = (a * initNum + c) % m
-    rnd2 = initNum / m
+    global _initNum
+    _initNum = (_a * _initNum + _c) % _m
+    rnd1 = _initNum / _m
+    _initNum = (_a * _initNum + _c) % _m
+    rnd2 = _initNum / _m
     return max(rnd1, 1e-8), max(rnd2, 1e-8)
 
 
