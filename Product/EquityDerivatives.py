@@ -30,4 +30,13 @@ def BinomialOption(S, K, T, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True
         return maximum(cpFlag * (price - K), 0.0)
 
     # FuncPayoff()가 아닌 FuncPayoff로 CRRTree에 넘겨서 객체 자체를 넘기도록 함
-    return CRRTree(S, T, R, sigma, FuncPayoff, Q=Q, N=N, earlyExercise=isAmerican)
+    return CRRTree(
+        S=S,
+        T=T,
+        R=R,
+        sigma=sigma,
+        FuncPayoff=FuncPayoff,
+        Q=Q,
+        N=N,
+        earlyExercise=isAmerican,
+    )
