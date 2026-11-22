@@ -56,16 +56,29 @@ https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform 참고
 """
 
 
+# 선형합동생성기 상태: 호출 사이에 이어져야 난수열이 독립적으로 생성됨
+_LCG_M = 2**31
+_LCG_A = 1103515245
+_LCG_C = 12345
+_lcgState = int(time() * 1_000_000) % _LCG_M
+
+
+def SetSeed(seed=None):
+    # seed=None이면 현재 시각(μs)으로 초기화, 정수를 주면 재현 가능한 난수열 생성
+    global _lcgState
+    if seed is None:
+        seed = int(time() * 1_000_000)
+    _lcgState = int(seed) % _LCG_M
+
+
 def GenRnd():
     # ANSI C: Watcom
-    # 사용자 시드에 따른 난수생성 기능 추가 필요
-    setSeed = int(time() * 1_000_000) % 2**32
-    m = 2**31
-    a = 1103515245
-    c = 12345
-    rnd1 = (setSeed * a + c) % m
-    rnd2 = (rnd1 * a + c) % m
-    return max(rnd1 / m, 1e-8), max(rnd2 / m, 1e-8)
+    global _lcgState
+    _lcgState = (_LCG_A * _lcgState + _LCG_C) % _LCG_M
+    rnd1 = _lcgState / _LCG_M
+    _lcgState = (_LCG_A * _lcgState + _LCG_C) % _LCG_M
+    rnd2 = _lcgState / _LCG_M
+    return max(rnd1, 1e-8), max(rnd2, 1e-8)
 
 
 def BoxMullerRnd(shape=1):
@@ -76,7 +89,7 @@ def BoxMullerRnd(shape=1):
     else:
         shape = tuple(shape)
     N = prod(shape)  # 생성해야할 총 난수
-    nPair = N // 2  # 생성해야할 총 횟수(2개씩 생성)
+    nPair = (N + 1) // 2  # 생성해야할 총 횟수(2개씩 생성, 홀수면 1쌍 추가)
 
     rndSpace = []
     for _ in range(nPair):
