@@ -69,9 +69,10 @@ def GenRnd():
     return max(rnd1, 1e-8), max(rnd2, 1e-8)
 
 
-def BoxMullerRnd(shape=1):
+def BoxMullerRnd(shape: int | tuple[int, ...] = 1):
     # A Note on the Generation of Random Normal Deviates (Box & Muller, 1958)
     # 사용자가 원하는 Numpy array 형태로 정규난수 반환
+    # MC에서 데이터 타입 밑줄 뜨기때문에 정수와 튜플 모두 인식한다는걸 타입 힌트로 명시
     if isinstance(shape, int):
         shape = (shape,)  # 쉼표를 넣어야 튜플형태로 인식함
     else:

@@ -3,7 +3,7 @@ from Core.Tree import CRRTree
 from numpy import maximum
 
 
-def BSOption(S, K, T, R, sigma, Q=0.0, isCall=True):
+def BSVanillaOption(S, K, T, R, sigma, Q=0.0, isCall=True):
     if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     if isCall:
@@ -20,13 +20,22 @@ def BSOption(S, K, T, R, sigma, Q=0.0, isCall=True):
         )
 
 
+def BSDigitalOption(S, K, T, R, sigma, cpn1, cpn2, Q=0.0):
+    if sigma <= 0 or S <= 0 or T < 0:
+        raise ValueError("Incorrect Input")
+    if T == 0:
+        return cpn2 if S > K else cpn1
+    d2 = (log(S / K) + (R - Q - 0.5 * sigma**2) * T) / (sigma * sqrt(T))
+    return exp(-R * T) * (cpn2 * CND(d2) + cpn1 * CND(-d2))
+
+
 def BinomialOption(S, K, T, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True):
     if isCall:
         cpFlag = +1
     else:
         cpFlag = -1
 
-    def FuncPayoff(price):
+    def VanillaPayoff(price):
         return maximum(cpFlag * (price - K), 0.0)
 
     # FuncPayoff()가 아닌 FuncPayoff로 CRRTree에 넘겨서 객체 자체를 넘기도록 함
@@ -35,7 +44,7 @@ def BinomialOption(S, K, T, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True
         T=T,
         R=R,
         sigma=sigma,
-        FuncPayoff=FuncPayoff,
+        FuncPayoff=VanillaPayoff,
         Q=Q,
         N=N,
         earlyExercise=isAmerican,
