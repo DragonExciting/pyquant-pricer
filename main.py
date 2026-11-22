@@ -1,3 +1,3 @@
-from Core.MC import SingleMC
+from Core.MC import EQSingleMonteCarlo
 
-print(SingleMC(100, 1.0, 0.03, 0.2))
+print(EQSingleMonteCarlo(100, 1.0, 0.03, 0.2))
