@@ -88,7 +88,7 @@ $$N(x) \approx 1 - \phi(x)\,(a_1 t + a_2 t^2 + a_3 t^3 + a_4 t^4 + a_5 t^5), \qu
 $$Z_1 = \sqrt{-2\ln U_1}\cos(2\pi U_2), \quad Z_2 = \sqrt{-2\ln U_1}\sin(2\pi U_2)$$
 
 - `Cholesky`: $\rho_{ij}$는 $L$의 i행과 j행의 내적이라는 점을 이용해, 위에서 아래로·왼쪽에서 오른쪽으로 한 원소씩 구합니다. 대각선에서 제곱근 안이 0 이하이면 양의 정부호가 아니므로 `ValueError`를 냅니다.
-  - 3×3 손 계산 과정: [`Utility/하삼각행렬_수기계산.jpg`](Utility/하삼각행렬_수기계산.jpg)
+  - 3×3 손 계산 과정: [`Utility/숄레츠키분해_수기계산.jpg`](Utility/숄레츠키분해_수기계산.jpg)
 
 ### `Core/Tree.py`
 
