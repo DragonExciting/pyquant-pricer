@@ -7,9 +7,9 @@ Python으로 직접 구현하는 금융상품 프라이싱 및 리스크 라이�
 
 | 모듈 | 역할 | 상태 |
 |---|---|---|
-| `Utility` | 날짜·영업일 처리, Day Count Convention, 쿠폰 스케줄, 정규분포 함수, 난수 생성, 몬테카를로 경로 생성 | 진행 중 |
+| `Utility` | 날짜·영업일 처리, Day Count Convention, 쿠폰 스케줄, 정규분포 함수, 난수 생성 | 진행 중 |
+| `Core` | 상품과 무관한 수치 엔진 (이항트리, 몬테카를로 경로 생성) | 진행 중 |
 | `Product` | 개별 상품 평가 (현재 주식 옵션) | 진행 중 |
-| `Core` | 프라이싱 엔진 공통 기반 | 예정 |
 | `Market` | 금리 커브, 변동성 등 시장 데이터 | 예정 |
 | `Risk` | 민감도(Greeks, Duration), VaR | 예정 |
 
@@ -17,10 +17,19 @@ Python으로 직접 구현하는 금융상품 프라이싱 및 리스크 라이�
 pyquant-pricer/
 ├── Utility/
 │   ├── Date.py               # 날짜 변환, 휴일/영업일, Day Count, 쿠폰 스케줄
-│   └── Math.py               # 정규분포, 유사난수, Box-Muller, 몬테카를로
+│   └── Math.py               # 정규분포, 유사난수, Box-Muller
+├── Core/
+│   ├── Tree.py               # CRR 이항트리 엔진 (payoff 함수를 받아 후진귀납)
+│   └── MC.py                 # GBM 몬테카를로 경로 생성
 └── Product/
-    └── EquityDerivatives.py  # 유러피안(Black-Scholes) / 아메리칸(CRR 이항트리) 옵션
+    └── EquityDerivatives.py  # 주식 옵션 (Black-Scholes 해석해, 이항트리)
 ```
+
+의존 방향은 `Utility ← Core ← Product` 한 방향입니다.
+
+- **Core**는 *어떻게 계산하는가*(수치 방법)만 담당하고, 행사가·콜/풋 같은 계약 조건은 모릅니다.
+- **Product**는 *무엇을 계산하는가*(payoff, 행사 규칙)를 정의하고, payoff를 **함수 객체**로 Core 엔진에 넘깁니다.
+- 덕분에 같은 엔진으로 유러피안·아메리칸을 모두 계산하고, 새 상품은 payoff만 추가하면 됩니다.
 
 ## 구현된 기능
 
@@ -60,7 +69,6 @@ pyquant-pricer/
 | `SetSeed(seed=None)` | 난수 시드 설정 (`None`이면 현재 시각, 정수면 재현 가능한 난수열) |
 | `GenRnd()` | 선형합동생성기(LCG)로 `(0, 1)` 균등난수 2개 생성 |
 | `BoxMullerRnd(shape=1)` | Box-Muller 변환으로 원하는 shape의 표준정규난수 배열 생성 |
-| `SingleMC(S, T, R, sigma, Q=0.0, N=252, numsSim=10_000)` | 기하 브라운 운동(GBM) 주가 경로 시뮬레이션 |
 
 - `CND`: Abramowitz & Stegun (1964) 다항 근사, 오차 약 $10^{-7}$ 수준
 
@@ -71,8 +79,27 @@ $$N(x) \approx 1 - \phi(x)\,(a_1 t + a_2 t^2 + a_3 t^3 + a_4 t^4 + a_5 t^5), \qu
 
 $$Z_1 = \sqrt{-2\ln U_1}\cos(2\pi U_2), \quad Z_2 = \sqrt{-2\ln U_1}\sin(2\pi U_2)$$
 
-- `SingleMC`: 로그 수익률을 누적해 경로를 생성하며, 분산감소기법으로 **Antithetic Variates**($Z$와 $-Z$ 쌍)를 사용합니다.
-  - 반환값: shape `(numsSim, step + 1)`의 주가 경로 배열 (첫 열은 `S`), `step = round(T × N)`
+### `Core/Tree.py`
+
+| 함수 | 설명 |
+|---|---|
+| `CRRTree(S, T, R, sigma, FuncPayoff, Q=0.0, N=252, earlyExercise=False)` | Cox-Ross-Rubinstein (1979) 이항트리 |
+
+- `FuncPayoff`: 주가(스칼라 또는 배열)를 받아 payoff를 돌려주는 **함수**. 호출 결과가 아니라 함수 자체를 넘깁니다.
+- `earlyExercise=True`면 각 노드에서 `max(계속보유가치, 행사가치)`(아메리칸), `False`면 할인 기대값만 사용(유러피안)합니다.
+- `N`은 **연간** 스텝 수이며, 총 스텝 수는 `round(N × T)`입니다. `T == 0`이면 `FuncPayoff(S)`를 반환합니다.
+
+$$u = e^{\sigma\sqrt{\Delta t}}, \quad d = 1/u, \quad p = \frac{e^{(R-Q)\Delta t} - d}{u - d}, \quad V_i = e^{-R\Delta t}\left[p\,V_{i+1}^{up} + (1-p)\,V_{i+1}^{down}\right]$$
+
+### `Core/MC.py`
+
+| 함수 | 설명 |
+|---|---|
+| `SingleMC(S, T, R, sigma, Q=0.0, N=252, numsSim=10_000)` | 기하 브라운 운동(GBM) 주가 경로 시뮬레이션 |
+
+- 로그 수익률을 누적해 경로를 생성하며, 분산감소기법으로 **Antithetic Variates**($Z$와 $-Z$ 쌍)를 사용합니다.
+- 반환값: shape `(numsSim, step + 1)`의 주가 경로 배열 (첫 열은 `S`), `step = round(T × N)`
+- 정규난수는 `Utility.Math.BoxMullerRnd`를 사용하므로 `SetSeed`로 재현할 수 있습니다.
 
 $$S_{t+\Delta t} = S_t \exp\left[\left(R - Q - \tfrac{1}{2}\sigma^2\right)\Delta t + \sigma\sqrt{\Delta t}\,Z\right]$$
 
@@ -80,13 +107,12 @@ $$S_{t+\Delta t} = S_t \exp\left[\left(R - Q - \tfrac{1}{2}\sigma^2\right)\Delta
 
 | 함수 | 설명 |
 |---|---|
-| `EuropeanOption(S, K, T, R, sigma, Q=0.0, isCall=True)` | Black-Scholes(-Merton) 해석해, 연속 배당수익률 `Q` 반영 |
-| `AmericanOption(S, K, T, R, sigma, Q=0.0, isCall=True, N=252)` | Cox-Ross-Rubinstein (1979) 이항트리, 조기행사 반영 |
+| `BSOption(S, K, T, R, sigma, Q=0.0, isCall=True)` | Black-Scholes(-Merton) 해석해, 연속 배당수익률 `Q` 반영 (유러피안) |
+| `BinomialOption(S, K, T, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True)` | `Core.Tree.CRRTree`로 계산하는 이항트리 가격 (아메리칸/유러피안 선택) |
 
 - `T == 0`이면 내재가치(Payoff)를 반환합니다.
-- `AmericanOption`의 `N`은 **연간** 스텝 수이며, 총 스텝 수는 `round(N × T)`입니다.
-  - $u = e^{\sigma\sqrt{\Delta t}},\ d = 1/u,\ p = \dfrac{e^{(R-Q)\Delta t} - d}{u - d}$
-  - 만기 Payoff에서 시작해 각 노드마다 `max(계속보유가치, 행사가치)`로 후진귀납(Backward Induction)합니다.
+- 콜/풋은 `cpFlag`(콜 `+1`, 풋 `−1`)로 payoff를 $\max(\text{cpFlag}\cdot(S-K),\ 0)$ 한 식으로 표현합니다.
+- `BinomialOption(..., isAmerican=False)`는 스텝 수를 늘릴수록 `BSOption`으로 수렴하므로, 두 방법을 서로 검증하는 데 쓸 수 있습니다.
 
 $$d_1 = \frac{\ln(S/K) + (R - Q + \tfrac{1}{2}\sigma^2)T}{\sigma\sqrt{T}}, \quad d_2 = d_1 - \sigma\sqrt{T}$$
 
@@ -96,7 +122,8 @@ $$C = S e^{-QT} N(d_1) - K e^{-RT} N(d_2), \quad P = K e^{-RT} N(-d_2) - S e^{-Q
 
 ```python
 from Utility.Date import MakeSchedule, Time2Mat, AdjustHoliday, AddBizDay
-from Utility.Math import CND, SetSeed, SingleMC
+from Utility.Math import CND, SetSeed
+from Core.MC import SingleMC
 
 # 3년 만기, 분기 지급, 시작일이 쿠폰일과 어긋나는 경우 (Short front stub)
 calcDates, payDates = MakeSchedule(20240301, 20270115, 4, stub="S")
@@ -126,11 +153,23 @@ paths.shape
 ```
 
 ```python
-from Product.EquityDerivatives import EuropeanOption, AmericanOption
+from Product.EquityDerivatives import BSOption, BinomialOption
 
-EuropeanOption(100, 100, 1.0, 0.03, 0.2)                # 9.4134 (Call)
-EuropeanOption(100, 100, 1.0, 0.03, 0.2, isCall=False)  # 6.4579 (Put)
-AmericanOption(100, 100, 1.0, 0.03, 0.2, isCall=False)  # 6.7392 (조기행사 프리미엄 포함)
+BSOption(100, 100, 1.0, 0.03, 0.2)                     # 9.4134 (Call)
+BSOption(100, 100, 1.0, 0.03, 0.2, isCall=False)       # 6.4579 (Put)
+
+BinomialOption(100, 100, 1.0, 0.03, 0.2, isCall=False)                    # 6.7392 (아메리칸 풋, 조기행사 프리미엄 포함)
+BinomialOption(100, 100, 1.0, 0.03, 0.2, isCall=False, isAmerican=False)  # 6.4501 (유러피안 풋)
+BinomialOption(100, 100, 1.0, 0.03, 0.2, isCall=False, N=2000, isAmerican=False)  # 6.4570 → BS 값으로 수렴
+```
+
+```python
+from Core.Tree import CRRTree
+
+# Core 엔진을 직접 사용: payoff 함수만 바꾸면 새로운 상품을 계산할 수 있음
+digitalCall = lambda s: (s > 100) * 10.0   # 만기 주가가 100 초과면 10 지급
+CRRTree(100, 1.0, 0.03, 0.2, digitalCall)
+# 4.8022 (해석해 5.0457 — payoff가 불연속이라 트리 오차가 큰 편)
 ```
 
 ## 설치
@@ -140,14 +179,19 @@ pip install -r requirements.txt
 ```
 
 - 의존성: `holidays`, `python-dateutil`, `numpy`
-- 모든 import는 저장소 루트 기준입니다. 루트에서 실행하세요.
+- 모든 import는 저장소 루트 기준입니다. 모듈 파일을 직접 실행할 때는 루트에서 `-m` 옵션을 사용하세요.
+  ```bash
+  python -m Core.MC        # O
+  python Core/MC.py        # X: ModuleNotFoundError: No module named 'Utility'
+  ```
 - Python 3.13에서 테스트했습니다.
 
 ## TODO
 
 - `Time2Mat`: 30/360 (2006 ISDA Definitions 4.16(f)) 지원
-- `SingleMC` 경로를 활용한 몬테카를로 옵션 프라이싱
-- `Core` / `Market` / `Risk` 모듈 구현
+- `SingleMC` 경로에 payoff 함수를 적용하는 몬테카를로 프라이서 (`Core`)
+- 숄레츠키 분해를 이용한 다자산 상관 경로 생성
+- `Market` / `Risk` 모듈 구현
 
 ## License
 
