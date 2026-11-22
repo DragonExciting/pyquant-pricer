@@ -25,3 +25,5 @@ def SingleMC(S, T, R, sigma, Q=0.0, N=252, numsSim=10_000):
     logPath = hstack([zeros([(int(numsSim / 2) * 2), 1]), cumsum(logReturn, axis=1)])
     path = S * exp(logPath)
     return path
+
+def BinomialTree(S, T, R, sigma, payoff, Q=0.0, N=252, earlyExercise=False):
