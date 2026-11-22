@@ -57,27 +57,27 @@ https://en.wikipedia.org/wiki/Box%E2%80%93Muller_transform 참고
 
 
 # 선형합동생성기 상태: 호출 사이에 이어져야 난수열이 독립적으로 생성됨
-_LCG_M = 2**31
-_LCG_A = 1103515245
-_LCG_C = 12345
-_lcgState = int(time() * 1_000_000) % _LCG_M
+m = 2**31
+a = 1103515245
+c = 12345
+initNum = int(time() * 1_000_000) % m
 
 
 def SetSeed(seed=None):
     # seed=None이면 현재 시각(μs)으로 초기화, 정수를 주면 재현 가능한 난수열 생성
-    global _lcgState
+    global initNum
     if seed is None:
         seed = int(time() * 1_000_000)
-    _lcgState = int(seed) % _LCG_M
+    initNum = int(seed) % m
 
 
 def GenRnd():
     # ANSI C: Watcom
     global _lcgState
-    _lcgState = (_LCG_A * _lcgState + _LCG_C) % _LCG_M
-    rnd1 = _lcgState / _LCG_M
-    _lcgState = (_LCG_A * _lcgState + _LCG_C) % _LCG_M
-    rnd2 = _lcgState / _LCG_M
+    _lcgState = (a * initNum + c) % m
+    rnd1 = initNum / m
+    _lcgState = (a * initNum + c) % m
+    rnd2 = _lcgState / m
     return max(rnd1, 1e-8), max(rnd2, 1e-8)
 
 
