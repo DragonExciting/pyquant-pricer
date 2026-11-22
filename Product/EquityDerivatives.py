@@ -23,32 +23,39 @@ def EuropeanOption(S, K, T, R, sigma, Q=0.0, isCall=True):
 
 def AmericanOption(S, K, T, R, sigma, Q=0.0, isCall=True, N=252):
     # Option pricing: A simplified approach (Cox & Ross & Rubinstein, 1979)
-    if sigma <= 0 or S <= 0 or N <= 0 or T <= 0:
+    if sigma <= 0 or S <= 0 or N <= 0 or T < 0:
         raise ValueError("Incorrect Input")
-
-    dT = T / N
-    u = exp(sigma * sqrt(dT))
-    d = 1 / u
-    p = (exp((R - Q) * dT) - d) / (u - d)
-    df = exp(-R * dT)  # 할인계수
-
-    j = arange(N + 1)  # j = 상승 횟수 0 ~ N, arange: 균등간격 1차원 넘파이 배열 반환
-    if isCall:
-        optValue = maximum(S * u**j * d ** (N - j) - K, 0.0)
-    else:
-        optValue = maximum(K - S * u**j * d ** (N - j), 0.0)
-        # 만기시점의 옵션 가치
-
-    for i in range(N - 1, -1, -1):
-        # Backward Induction
-        j = arange(i + 1)
-        Si = S * u**j * d ** (i - j)
-        contValue = df * (p * optValue[1 : i + 2] + (1 - p) * optValue[0 : i + 1])
+    if T == 0:
         if isCall:
-            excerciseValue = maximum(Si - K, 0.0)
+            return max(S - K, 0)
         else:
-            excerciseValue = maximum(K - Si, 0.0)
+            return max(K - S, 0)
+    elif T > 0:
+        dT = T / N
+        u = exp(sigma * sqrt(dT))
+        d = 1 / u
+        p = (exp((R - Q) * dT) - d) / (u - d)
+        df = exp(-R * dT)  # 할인계수
 
-        optValue = maximum(contValue, excerciseValue)
+        j = arange(
+            N + 1
+        )  # j = 상승 횟수 0 ~ N, arange: 균등간격 1차원 넘파이 배열 반환
+        if isCall:
+            optValue = maximum(S * u**j * d ** (N - j) - K, 0.0)
+        else:
+            optValue = maximum(K - S * u**j * d ** (N - j), 0.0)
+            # 만기시점의 옵션 가치
 
-    return optValue[0]
+        for i in range(N - 1, -1, -1):
+            # Backward Induction
+            j = arange(i + 1)
+            Si = S * u**j * d ** (i - j)
+            contValue = df * (p * optValue[1 : i + 2] + (1 - p) * optValue[0 : i + 1])
+            if isCall:
+                excerciseValue = maximum(Si - K, 0.0)
+            else:
+                excerciseValue = maximum(K - Si, 0.0)
+
+            optValue = maximum(contValue, excerciseValue)
+
+        return optValue[0]
