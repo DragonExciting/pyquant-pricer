@@ -90,8 +90,6 @@ $$Z_1 = \sqrt{-2\ln U_1}\cos(2\pi U_2), \quad Z_2 = \sqrt{-2\ln U_1}\sin(2\pi U_
 - `Cholesky`: $\rho_{ij}$는 $L$의 i행과 j행의 내적이라는 점을 이용해, 위에서 아래로·왼쪽에서 오른쪽으로 한 원소씩 구합니다. 대각선에서 제곱근 안이 0 이하이면 양의 정부호가 아니므로 `ValueError`를 냅니다.
   - 3×3 손 계산 과정: [`Utility/하삼각행렬_수기계산.jpg`](Utility/하삼각행렬_수기계산.jpg)
 
-$$l_{ii} = \sqrt{\rho_{ii} - \sum_{k<i} l_{ik}^2}, \qquad l_{ij} = \frac{1}{l_{jj}}\left(\rho_{ij} - \sum_{k<j} l_{ik}\, l_{jk}\right) \quad (i > j)$$
-
 ### `Core/Tree.py`
 
 | 함수 | 설명 |
