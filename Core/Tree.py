@@ -1,7 +1,10 @@
 from Utility.Math import exp, sqrt
 from numpy import arange, maximum
 
-
+"""
+Cox, Ross and Rubinstein in 1979
+https://en.wikipedia.org/wiki/Binomial_options_pricing_model
+"""
 def CRRTree(S, T, R, sigma, FuncPayoff, Q=0.0, N=252, earlyExercise=False):
     # Option pricing: A simplified approach (Cox & Ross & Rubinstein, 1979)
     if sigma <= 0 or S <= 0 or N <= 0 or T < 0:
@@ -34,3 +37,8 @@ def CRRTree(S, T, R, sigma, FuncPayoff, Q=0.0, N=252, earlyExercise=False):
                 optValue = contValue
 
         return optValue[0]
+
+"""
+Black–Derman–Toy model
+https://en.wikipedia.org/wiki/Black%E2%80%93Derman%E2%80%93Toy_model
+"""
