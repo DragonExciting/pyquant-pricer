@@ -9,7 +9,7 @@ https://en.wikipedia.org/wiki/Monte_Carlo_method 참고
 
 
 # 단일 기초자산 블랙숄즈 기반 몬테카를로 시뮬레이션(테스트용)
-def BlackSholesSingle(S, T, R, sigma, Q=0.0, N=252, numsSim=10_000):
+def _BlackSholesSingle(S, T, R, sigma, Q=0.0, N=252, numsSim=10_000):
     if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     totalStep = max(int(round(T * N)), 1)
