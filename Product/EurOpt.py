@@ -7,10 +7,9 @@ from Utility.Math import CND, log, sqrt, exp
 https://en.wikipedia.org/wiki/Foreign_exchange_option 참고
 """
 
-def VanillaPayoff(S, K, T, sigma, R, Q, isCall=True):
+def VanillaPayoff(S, K, T, sigma, R, Q=0.0, isCall=True):
     # FX Option으로 사용할 경우, R = 국내 금리, Q = 해외 금리
-    # 해외 금리가 0이 되지 않도록 디폴트값 제거
-    if sigma <= 0 or S <= 0 or T < 0 or Q <= 0:
+    if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     if isCall:
         cpFlag = +1
