@@ -1,4 +1,4 @@
-from Utility.Math import BoxMullerRnd, sqrt, exp, Cholesky
+from Utility.Math import BoxMullerRnd, sqrt, exp, Cholesky, MarsagliaRnd
 from numpy import vstack, cumsum, hstack, zeros, asarray, concatenate, atleast_1d
 
 """
@@ -60,7 +60,7 @@ def BlackScholes(S, T, R, sigma, corr=None, Q=None, N=252, numsSim=10_000):
     dT = T / totalStep
     half = numsSim // 2
     # 분산감소기법: Antithetic
-    rndSpace = BoxMullerRnd((half, totalStep, assetNums))
+    rndSpace = MarsagliaRnd((half, totalStep, assetNums))
     antithetic = concatenate([rndSpace, -rndSpace])
     corrAntithetic = antithetic @ L.T
 

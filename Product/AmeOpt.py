@@ -17,7 +17,7 @@ def VanillaPayoff(S, K, T, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True)
         T=T,
         R=R,
         sigma=sigma,
-        FuncPayoff=Payoff,
+        payoffFunc=Payoff,
         Q=Q,
         N=N,
         earlyExercise=isAmerican,

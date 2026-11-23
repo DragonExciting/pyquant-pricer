@@ -5,12 +5,14 @@ from numpy import arange, maximum
 Cox, Ross and Rubinstein in 1979
 https://en.wikipedia.org/wiki/Binomial_options_pricing_model
 """
-def CRRTree(S, T, R, sigma, FuncPayoff, Q=0.0, N=252, earlyExercise=False):
+
+
+def CRRTree(S, T, R, sigma, payoffFunc, Q=0.0, N=252, earlyExercise=False):
     # Option pricing: A simplified approach (Cox & Ross & Rubinstein, 1979)
     if sigma <= 0 or S <= 0 or N <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     elif T == 0:
-        return FuncPayoff(S)
+        return payoffFunc(S)
     elif T > 0:
         step = max(int(round(N * T)), 1)
         dT = T / step
@@ -22,7 +24,7 @@ def CRRTree(S, T, R, sigma, FuncPayoff, Q=0.0, N=252, earlyExercise=False):
         j = arange(step + 1)
         # j = 상승 횟수 0 ~ N, arange: 균등간격 1차원 넘파이 배열 반환
         matValue = S * u**j * d ** (step - j)
-        optValue = FuncPayoff(matValue)
+        optValue = payoffFunc(matValue)
         for i in range(step - 1, -1, -1):
             # Backward Induction
             j = arange(i + 1)
@@ -30,13 +32,14 @@ def CRRTree(S, T, R, sigma, FuncPayoff, Q=0.0, N=252, earlyExercise=False):
             contValue = df * (p * optValue[1 : i + 2] + (1 - p) * optValue[0 : i + 1])
             if earlyExercise:
                 # 아메리칸
-                excerciseValue = FuncPayoff(Si)
+                excerciseValue = payoffFunc(Si)
                 optValue = maximum(contValue, excerciseValue)
             else:
                 # 유러피안
                 optValue = contValue
 
         return optValue[0]
+
 
 """
 Black–Derman–Toy model

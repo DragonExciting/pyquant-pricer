@@ -66,6 +66,7 @@ def GenRnd():
     rnd1 = _initNum / _m
     _initNum = (_a * _initNum + _c) % _m
     rnd2 = _initNum / _m
+    # 0~1 사이의 난수만 반환
     return max(rnd1, 1e-8), max(rnd2, 1e-8)
 
 
@@ -86,6 +87,40 @@ def BoxMullerRnd(shape: int | tuple[int, ...] = 1):
 
         normRnd1 = sqrt(-2 * log(uniRnd1)) * cos(2 * pi * uniRnd2)
         normRnd2 = sqrt(-2 * log(uniRnd1)) * sin(2 * pi * uniRnd2)
+        rndSpace.append((normRnd1, normRnd2))
+    rndArray = array(rndSpace).ravel()[:N].reshape(shape)
+    # .ravel() 1차원으로 펼침
+    # N이 홀수인 경우, 생성된 쌍은 N+1개 이므로 [:N]을 통해 마지막 1개를 제거해야 reshape에서 오류 미발생
+    return rndArray
+
+
+def MarsagliaRnd(shape: int | tuple[int, ...] = 1):
+    # https://en.wikipedia.org/wiki/Marsaglia_polar_method
+    # A Convenient Method for Generating Normal Variables (Marsaglia, 1964)
+
+    # sin, cos 미사용
+    if isinstance(shape, int):
+        shape = (shape,)  # 쉼표를 넣어야 튜플형태로 인식함
+    else:
+        shape = tuple(shape)
+    N = prod(shape)  # 생성해야할 총 난수
+    nPair = (N + 1) // 2  # 생성해야할 총 횟수(2개씩 생성, 홀수면 1쌍 추가)
+
+    rndSpace = []
+    for _ in range(nPair):
+        uniRnd1, uniRnd2 = GenRnd()
+        uniRnd1, uniRnd2 = 2 * uniRnd1 - 1, 2 * uniRnd2 - 1
+        # 마르살리아 알고리즘은 -1 ~ 1 사이의 난수를 사용함
+        # (0, 1) -> (0, 2) -> (-1, 1) 형식으로 난수범위 변환
+        s = uniRnd1**2 + uniRnd2**2
+        while s >= 1 or s <= 0:
+            uniRnd1, uniRnd2 = GenRnd()
+            uniRnd1, uniRnd2 = 2 * uniRnd1 - 1, 2 * uniRnd2 - 1
+            s = uniRnd1**2 + uniRnd2**2
+
+        k = sqrt(-2 * log(s) / s)
+        normRnd1 = k * uniRnd1
+        normRnd2 = k * uniRnd2
         rndSpace.append((normRnd1, normRnd2))
     rndArray = array(rndSpace).ravel()[:N].reshape(shape)
     # .ravel() 1차원으로 펼침
@@ -126,3 +161,14 @@ def Cholesky(corr):
             else:
                 L[i, j] = s / L[j, j]
     return L
+
+
+"""
+해찾기 -> 뉴튼-랩슨, 이분법, 브랜트 알고리즘
+https://en.wikipedia.org/wiki/Newton%27s_method 참고
+https://en.wikipedia.org/wiki/Bisection_method 참고
+"""
+
+
+def Newton(rootFunc, marketValue, tol=1e-8, maxTry=100):
+    return
