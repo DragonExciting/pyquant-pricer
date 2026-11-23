@@ -1,7 +1,14 @@
 from Utility.Math import CND, log, sqrt, exp
 
+"""
+유러피언 바닐라 옵션에 대하여 주식, FX 공용으로 사용
+주식: 블랙숄즈 닫힌 해
+외환: Garman–Kohlhagen 닫힌 해
+https://en.wikipedia.org/wiki/Foreign_exchange_option 참고
+"""
 
-def VanillaPayoff(S, K, T, R, sigma, Q=0.0, isCall=True):
+def VanillaPayoff(S, K, T, sigma, R, Q, isCall=True):
+    # FX Option으로 사용할 경우, R = 국내 금리, Q = 해외 금리
     if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     if isCall:
