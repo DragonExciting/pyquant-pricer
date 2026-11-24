@@ -170,5 +170,5 @@ https://en.wikipedia.org/wiki/Bisection_method 참고
 """
 
 
-def Newton(rootFunc, marketValue, tol=1e-8, maxTry=100):
+def Newton(rootFunc, x, tol=1e-8, maxTry=100):
     return
