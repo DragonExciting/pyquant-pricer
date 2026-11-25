@@ -53,7 +53,7 @@ def BlackScholes(S, T, R, sigma, corr=None, Q=None, N=252, numsSim=10_000):
 
     if assetNums > 1 and asarray(corr).shape != (assetNums, assetNums):
         raise ValueError("Corr must be (n, n) matrix")
-
+    # 숄레츠키 분해
     L = Cholesky(corr=corr)
 
     totalStep = max(int(round(T * N)), 1)

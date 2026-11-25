@@ -42,6 +42,11 @@ def CRRTree(S, T, R, sigma, payoffFunc, Q=0.0, N=252, earlyExercise=False):
 
 
 """
-Black–Derman–Toy model
+Black-Derman-Toy model(무차익 모형, 1990)
 https://en.wikipedia.org/wiki/Black%E2%80%93Derman%E2%80%93Toy_model
+Short Rate의 평균회귀와 로그 정규 분포 가정 -> 음의 금리 구현 불가
+"""
+"""
+Arrow-Debreu 증권: 특정시점의 특정 상태가 실현되면 1원을 지급하고 그 외에는 아무것도 지급하지 않는다.
+Arrow-Debreu 가격(= 상태가격): Arrow-Debreu 증권의 현재 가격
 """
