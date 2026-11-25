@@ -3,7 +3,7 @@ from Utility.Math import CND, log, sqrt, exp
 """
 유러피언 바닐라 옵션에 대하여 주식, FX 공용으로 사용
 주식: 블랙숄즈 닫힌 해
-외환: Garman–Kohlhagen 닫힌 해
+외환: Garman-Kohlhagen 닫힌 해
 https://en.wikipedia.org/wiki/Foreign_exchange_option 참고
 """
 
