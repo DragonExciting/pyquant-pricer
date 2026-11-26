@@ -170,12 +170,12 @@ $$S^{(i)}_{t+\Delta t} = S^{(i)}_t \exp\left[\left(R - Q_i - \tfrac{1}{2}\sigma_
 | 함수 | 설명 |
 |---|---|
 | `VanillaOpt(S, K, T, sigma, R, Q=0.0, isCall=True)` | Black-Scholes(-Merton) / Garman-Kohlhagen 유러피안 옵션 |
-| `DigitalOpt(S, K, T, R, sigma, cpn1, cpn2, Q=0.0)` | 디지털 옵션: 만기 주가가 `K` 초과면 `cpn2`, 이하면 `cpn1` 지급 |
+| `DigitalOpt(S, K, T, sigma, R, cpn1, cpn2, Q=0.0)` | 디지털 옵션: 만기 주가가 `K` 초과면 `cpn2`, 이하면 `cpn1` 지급 |
 
 - 주식과 FX가 같은 식을 공유합니다. FX 옵션은 `R` = 국내 금리, `Q` = 외국 금리로 넣습니다.
 - 콜/풋은 `cpFlag`(콜 `+1`, 풋 `−1`)로 하나의 식에 통합했습니다.
 - `T == 0`이면 내재가치(만기 지급액)를 반환합니다.
-- ⚠️ 두 함수의 `sigma`, `R` 인자 순서가 다르므로 **키워드 인자로 호출**하는 것을 권장합니다.
+- 두 함수 모두 `(S, K, T, sigma, R, ...)` 순서로 인자를 받습니다.
 
 $$d_1 = \frac{\ln(S/K) + (R - Q + \tfrac{1}{2}\sigma^2)T}{\sigma\sqrt{T}}, \quad d_2 = d_1 - \sigma\sqrt{T}$$
 
@@ -236,7 +236,11 @@ $$\sigma_0 = \sqrt{\frac{2\,|\ln(F/K)|}{T}}, \qquad F = S\,e^{(R-Q)T}$$
 | `Gamma(S, K, T, sigma, R, Q=0.0)` | $\partial^2 V / \partial S^2$ (콜·풋 동일) |
 | `Vega(S, K, T, sigma, R, Q=0.0)` | $\partial V / \partial \sigma$ (콜·풋 동일), `ImpVol`의 신뢰성 검사에 사용 |
 
-$$\text{Vega} = S e^{-QT}\sqrt{T}\,\phi(d_1)$$
+$$\Delta_{call} = e^{-QT}N(d_1), \quad \Delta_{put} = e^{-QT}\left[N(d_1) - 1\right], \quad \Gamma = \frac{e^{-QT}\phi(d_1)}{S\sigma\sqrt{T}}, \quad \text{Vega} = S e^{-QT}\sqrt{T}\,\phi(d_1)$$
+
+- 연속 배당수익률(FX는 외국 금리) `Q`의 할인 $e^{-QT}$를 모두 반영합니다.
+- 만기(`T == 0`)에서 `Delta`는 payoff의 기울기를 반환합니다: 콜은 $S > K$면 1, 풋은 $S < K$면 −1, 그 외(ATM 포함)는 0
+- `Gamma`는 만기에서 정의되지 않으므로(ATM에서 발산) `T <= 0`이면 `ValueError`를 냅니다.
 
 ### `DB/DBConn.py`
 
@@ -291,7 +295,7 @@ from Product.Fwd import EquityFwd
 # Black-Scholes
 EurOpt.VanillaOpt(S=100, K=100, T=1.0, sigma=0.2, R=0.03)                 # 9.4134 (Call)
 EurOpt.VanillaOpt(S=100, K=100, T=1.0, sigma=0.2, R=0.03, isCall=False)   # 6.4579 (Put)
-EurOpt.DigitalOpt(S=100, K=100, T=1.0, R=0.03, sigma=0.2, cpn1=0, cpn2=10)  # 5.0457 (K 초과 시 10 지급)
+EurOpt.DigitalOpt(S=100, K=100, T=1.0, sigma=0.2, R=0.03, cpn1=0, cpn2=10)  # 5.0457 (K 초과 시 10 지급)
 
 # Garman-Kohlhagen (USD/KRW 1,400, 원화 3%, 달러 4.5%, 변동성 10%)
 EurOpt.VanillaOpt(S=1400, K=1400, T=1.0, sigma=0.1, R=0.03, Q=0.045)                # 44.26 (Call)

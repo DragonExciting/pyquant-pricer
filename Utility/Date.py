@@ -77,7 +77,7 @@ def AdjustHoliday(dateParam, exchange="XKRX", convention="MF"):
 def Time2Mat(startDate, endDate, conv="ACT/ACT"):
     # 30/360은 별도의 공식이 존재(2006 ISDA Definition 4.16(f)) 추가 필요
     # ACT/365F 추가 필요
-    conv = conv.upper()
+    conv = str(conv).upper()
     if type(conv) == int:
         conv = str(conv)
     if conv not in ("ACT/ACT", "ACT/365", "ACT/360"):
