@@ -7,10 +7,19 @@ from numpy import asarray
 
 
 def ImpVol(OptPrice, S, K, startDate, expDate, R, Q=0.0, initVol=None, isCall=True):
-    T = Time2Mat(startDate, expDate, conv="ACT/ACT")
+    T = Time2Mat(startDate, expDate, conv="ACT/365")
 
     def _TheoPrice(sigma):
-        return VanillaOpt(S=S, K=K, T=T, sigma=sigma, R=R, Q=Q, isCall=isCall)
+        return VanillaOpt(
+            S=S,
+            K=K,
+            startDate=startDate,
+            expDate=expDate,
+            sigma=sigma,
+            R=R,
+            Q=Q,
+            isCall=isCall,
+        )
 
     if initVol == None:
         # The Calculation of Implied Variances from the Black-Scholes Model (Manaster & Koehler, 1982)

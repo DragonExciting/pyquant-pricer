@@ -1,6 +1,6 @@
 from pymysql import connect
+from pymysql.cursors import DictCursor
 from dotenv import load_dotenv
-from pandas import read_sql_query
 from pathlib import Path
 import os
 
@@ -15,9 +15,9 @@ def _Conn():
         host=os.getenv("DB_HOST"),
         port=int(os.getenv("DB_PORT", "3306")),
         user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PWD"),
+        password=os.getenv("DB_PWD", ""),
         database=os.getenv("DB_DATABASE"),
-        charset=os.getenv("DB_CHARSET"),
+        charset=os.getenv("DB_CHARSET", "utf8mb4"),
     )
 
 
@@ -25,4 +25,7 @@ def LoadDB(strQuery):
     with _Conn() as conn:
         # DBConn.py를 임포트할때마다 연결하는걸 방지
         # 해당 함수를 호출하여 사용시에만 호출
-        return read_sql_query(strQuery, conn)
+        cursor = conn.cursor(DictCursor)
+        cursor.execute(strQuery)
+        data = cursor.fetchall()
+        return data
