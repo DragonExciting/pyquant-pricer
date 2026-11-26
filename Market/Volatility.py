@@ -1,12 +1,12 @@
 from Utility.Solver import Newton, Bisection
 from Utility.Math import exp, log, sqrt
-from Product.EurOpt import VanillaPayoff
+from Product.EurOpt import VanillaOpt
 from Market.Greeks import Vega
 
 
 def ImpVol(OptPrice, S, K, T, R, Q=0.0, initVol=None, isCall=True):
     def TheoPrice(sigma):
-        return VanillaPayoff(S=S, K=K, T=T, sigma=sigma, R=R, Q=Q, isCall=isCall)
+        return VanillaOpt(S=S, K=K, T=T, sigma=sigma, R=R, Q=Q, isCall=isCall)
 
     if initVol == None:
         # The Calculation of Implied Variances from the Black-Scholes Model (Manaster & Koehler, 1982)

@@ -2,7 +2,7 @@ from Core.Tree import CRRTree
 from numpy import maximum
 
 
-def VanillaPayoff(S, K, T, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True):
+def VanillaOpt(S, K, T, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True):
     if isCall:
         cpFlag = +1
     else:
