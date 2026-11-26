@@ -26,7 +26,7 @@ def VanillaOpt(S, K, T, sigma, R, Q=0.0, isCall=True):
         )
 
 
-def DigitalOpt(S, K, T, R, sigma, cpn1, cpn2, Q=0.0):
+def DigitalOpt(S, K, T, sigma, R, cpn1, cpn2, Q=0.0):
     if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     if T == 0:

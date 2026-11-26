@@ -15,13 +15,13 @@ def Delta(S, K, T, sigma, R, Q=0.0, isCall=True):
         raise ValueError("Incorrect Input")
     d1 = (log(S / K) + (R - Q + 0.5 * sigma**2) * T) / (sigma * sqrt(T))
     if isCall:
-        return CND(d1)
+        return exp(-Q * T) * CND(d1)
     else:
-        return CND(d1) - 1
+        return exp(-Q * T) * (CND(d1) - 1)
 
 
 def Gamma(S, K, T, sigma, R, Q=0.0):
     if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     d1 = (log(S / K) + (R - Q + 0.5 * sigma**2) * T) / (sigma * sqrt(T))
-    return PDF(d1) / (S * sigma * sqrt(T))
+    return exp(-Q * T) * PDF(d1) / (S * sigma * sqrt(T))
