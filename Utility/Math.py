@@ -1,4 +1,4 @@
-from numpy import array, sqrt, pi, exp, cos, sin, log, prod, zeros, empty_like
+from numpy import array, sqrt, pi, exp, cos, sin, log, prod, zeros
 from time import time
 
 
