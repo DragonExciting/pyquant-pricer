@@ -2,6 +2,8 @@ from Utility.Solver import Newton, Bisection
 from Utility.Math import exp, log, sqrt
 from Product.EurOpt import VanillaOpt
 from Market.Greeks import Vega
+from numpy import asarray
+from datetime import datetime
 
 
 def ImpVol(OptPrice, S, K, T, R, Q=0.0, initVol=None, isCall=True):
@@ -31,5 +33,9 @@ def ImpVol(OptPrice, S, K, T, R, Q=0.0, initVol=None, isCall=True):
         return impVol
 
 
-def HistVol():
+def HistVol(priceArray, volType="SMA", window=252, decayFactor=0.94):
+    volType = volType.upper()
+    if volType not in ("SMA", "EWMA"):
+        raise ValueError("Incorrect Historical Volatility Type")
+    priceArray = asarray(priceArray, float)
     return

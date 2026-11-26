@@ -1,4 +1,4 @@
-from numpy import array, sqrt, pi, exp, cos, sin, log, prod, zeros
+from numpy import array, sqrt, pi, exp, cos, sin, log, prod, zeros, empty_like
 from time import time
 
 
@@ -161,14 +161,3 @@ def Cholesky(corr):
             else:
                 L[i, j] = s / L[j, j]
     return L
-
-
-"""
-해찾기 -> 뉴튼-랩슨, 이분법, 브랜트 알고리즘
-https://en.wikipedia.org/wiki/Newton%27s_method 참고
-https://en.wikipedia.org/wiki/Bisection_method 참고
-"""
-
-
-def Newton(rootFunc, x, tol=1e-8, maxTry=100):
-    return
