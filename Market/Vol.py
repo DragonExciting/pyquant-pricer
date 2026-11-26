@@ -3,7 +3,6 @@ from Utility.Math import exp, log, sqrt
 from Product.EurOpt import VanillaOpt
 from Market.Greeks import Vega
 from numpy import asarray
-from datetime import datetime
 
 
 def ImpVol(OptPrice, S, K, T, R, Q=0.0, initVol=None, isCall=True):
