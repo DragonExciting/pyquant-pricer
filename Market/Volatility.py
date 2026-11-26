@@ -21,7 +21,7 @@ def ImpVol(OptPrice, S, K, T, R, Q=0.0, initVol=None, isCall=True):
             rootParam=initVol,
             target=OptPrice,
         )
-
+    # 뉴튼랩슨으로 해찾고 실패할 경우, 이분법으로 해찾기
     except ValueError:
         impVol = Bisection(rootFunc=TheoPrice, target=OptPrice, low=1e-4, high=5.0)
 
