@@ -50,3 +50,7 @@ Short Rate의 평균회귀와 로그 정규 분포 가정 -> 음의 금리 구�
 Arrow-Debreu 증권: 특정시점의 특정 상태가 실현되면 1원을 지급하고 그 외에는 아무것도 지급하지 않는다.
 Arrow-Debreu 가격(= 상태가격): Arrow-Debreu 증권의 현재 가격
 """
+
+
+def BDTTree():
+    return
