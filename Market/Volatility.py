@@ -29,3 +29,7 @@ def ImpVol(OptPrice, S, K, T, R, Q=0.0, initVol=None, isCall=True):
         raise ValueError("Vega is too small")
     else:
         return impVol
+
+
+def HistVol():
+    return

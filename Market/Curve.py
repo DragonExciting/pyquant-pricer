@@ -17,7 +17,8 @@ def LoadDF(tenorArray, rateArray, targetTau):
     rateArray = asarray(rateArray, float)
 
     lowerIndex = where(targetTau >= tenorArray)[0][-1]
-    # where: 해당 조건을 충족하는 인덱스들을 호출
+    # where: 해당 조건을 충족하는 인덱스들을 호출 -> 낮은 순번 인덱스부터 반환
+    # tenorArray 중 targetTau 보다 낮은 것 중 가장 큰것은 맨 마지막 인덱스에 있음
     lowerTenor = tenorArray[lowerIndex]
     higherIndex = where(targetTau <= tenorArray)[0][0]
     higherTenor = tenorArray[higherIndex]
