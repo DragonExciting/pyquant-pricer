@@ -7,6 +7,8 @@ def VanillaOpt(
     S, K, startDate, expDate, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True
 ):
     T = Time2Mat(startDate=startDate, endDate=expDate, conv="ACT/365")
+    if T is None:
+        raise ValueError("Incorrect Input")
     if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     if isCall:
