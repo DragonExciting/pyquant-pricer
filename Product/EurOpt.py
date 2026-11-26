@@ -26,10 +26,12 @@ def VanillaOpt(S, K, T, sigma, R, Q=0.0, isCall=True):
         )
 
 
-def DigitalOpt(S, K, T, sigma, R, cpn1, cpn2, Q=0.0):
+def DigitalOpt(S, K, T, sigma, R, cpnLow, cpnHigh, Q=0.0):
+    # cpnLow는 기초자산이 행사가 밑일때 지급하는 쿠폰
+    # cpnHigh는 기초자산이 행사가 위일때 지급하는 쿠폰
     if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     if T == 0:
-        return cpn2 if S > K else cpn1
+        return cpnHigh if S > K else cpnLow
     d2 = (log(S / K) + (R - Q - 0.5 * sigma**2) * T) / (sigma * sqrt(T))
-    return exp(-R * T) * (cpn2 * CND(d2) + cpn1 * CND(-d2))
+    return exp(-R * T) * (cpnHigh * CND(d2) + cpnLow * CND(-d2))
