@@ -75,14 +75,12 @@ def AdjustHoliday(dateParam, exchange="XKRX", convention="MF"):
 
 
 def Time2Mat(startDate, endDate, conv="ACT/ACT"):
-    # 30/360은 별도의 공식이 존재(2006 ISDA Definition 4.16(f)) 추가 필요
+    # 30/360 US 추가 필요
     # ACT/365F 추가 필요
     conv = str(conv).upper()
-    if type(conv) == int:
-        conv = str(conv)
-    if conv not in ("ACT/ACT", "ACT/365", "ACT/360"):
+    if conv not in ("ACT/ACT", "ACT/365", "ACT/360", "30E/360"):
         raise ValueError(
-            "Incorrect Convention. Available ['ACT/ACT', 'ACT/365', 'ACT/360]'"
+            "Incorrect Convention. Available ['ACT/ACT', 'ACT/365', 'ACT/360', '30E/360']"
         )
 
     startDate = ConvDate(startDate)
@@ -92,6 +90,19 @@ def Time2Mat(startDate, endDate, conv="ACT/ACT"):
         return (endDate - startDate).days / 365
     elif conv == "ACT/360":
         return (endDate - startDate).days / 360
+    elif conv == "30E/360":
+        day1 = startDate.day
+        day2 = endDate.day
+        if day1 == 31:
+            day1 = 30
+        if day2 == 31:
+            day2 = 30
+        calcDayCount = (
+            360 * (endDate.year - startDate.year)
+            + 30 * (endDate.month - startDate.month)
+            + (day2 - day1)
+        ) / 360
+        return calcDayCount
     elif conv == "ACT/ACT":
         if endDate.year == startDate.year:
             return (endDate - startDate).days / (

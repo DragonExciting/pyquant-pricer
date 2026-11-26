@@ -69,6 +69,11 @@ pyquant-pricer/
   - `"ACT/365"`: ACT/365 Fixed
   - `"ACT/360"`: ACT/360
   - `"ACT/ACT"`: ACT/ACT (ISDA) — 연도별 실제 일수(윤년 포함)로 나눠 합산
+  - `"30E/360"`: 30E/360 Eurobond Basis (2006 ISDA Definitions 4.16(g)) — 모든 달을 30일로 간주하며, 31일은 시작일·종료일 모두 30일로 조정 (2월 말은 조정하지 않음)
+
+$$\text{DCF}_{30E/360} = \frac{360(Y_2 - Y_1) + 30(M_2 - M_1) + (D_2 - D_1)}{360}, \quad D_i = \min(D_i, 30)$$
+
+  - Convention 이름은 대소문자를 구분하지 않습니다.
 - **쿠폰 스케줄** (`MakeSchedule`)
   - 만기일에서 역산하여 생성하므로 월말 날짜가 밀리지 않음 (1/31 → 2/29 → 3/31)
   - 연 지급 횟수 1, 2, 4, 6, 12회 지원
@@ -397,7 +402,7 @@ pip install -r requirements.txt
 - **변동성**: `HistVol`(SMA, EWMA) 완성
 - **유한차분법**: `Core/FDM.py` Crank-Nicolson
 - **몬테카를로**: 경로에 payoff 함수를 적용해 할인 평균을 내는 범용 프라이서, 스텝다운 ELS(낙인, 스노우볼 등)
-- **날짜**: `Time2Mat`에 30/360 (2006 ISDA Definitions 4.16(f)) 지원
+- **날짜**: `Time2Mat`에 30/360 Bond Basis (2006 ISDA Definitions 4.16(f)) 지원
 - **리스크**: Theta·Rho, Duration·Convexity, VaR
 - **성능**: `BoxMullerRnd` / `MarsagliaRnd` 벡터화 (현재 Python 반복문 기반)
 
