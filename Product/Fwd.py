@@ -1,7 +1,9 @@
 from Utility.Math import exp
+from Utility.Date import Time2Mat
 
 
-def EquityFwd(S, T, R, Q=0.0, B=0.0):
+def EquityFwd(S, startDate, expDate, R, Q=0.0, B=0.0):
+    T = Time2Mat(startDate=startDate, endDate=expDate, conv="ACT/365")
     if S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     # Q: 연속 배당 수익률 -> 이산배당을 할인하여 차감하는 기능 추가 필요

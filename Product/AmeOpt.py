@@ -1,8 +1,14 @@
 from Core.Tree import CRRTree
+from Utility.Date import Time2Mat
 from numpy import maximum
 
 
-def VanillaOpt(S, K, T, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True):
+def VanillaOpt(
+    S, K, startDate, expDate, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True
+):
+    T = Time2Mat(startDate=startDate, endDate=expDate, conv="ACT/365")
+    if sigma <= 0 or S <= 0 or T < 0:
+        raise ValueError("Incorrect Input")
     if isCall:
         cpFlag = +1
     else:
