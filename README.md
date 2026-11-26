@@ -25,7 +25,7 @@ pyquant-pricer/
 │   └── FDM.py          # 유한차분법(Crank-Nicolson) 자리
 ├── Product/
 │   ├── EurOpt.py       # Black-Scholes / Garman-Kohlhagen 닫힌 해 (바닐라, 디지털)
-│   ├── AmeOpt.py       # 이항트리 바닐라 옵션 (아메리칸/유러피안)
+│   ├── AmeOpt.py       # 이항트리 바닐라·디지털 옵션 (아메리칸/유러피안)
 │   ├── Fwd.py          # 주식 선도가격
 │   └── Bnd.py          # 고정금리채 자리
 ├── Market/
@@ -33,7 +33,7 @@ pyquant-pricer/
 │   ├── Vol.py          # 내재변동성 (Newton → 이분법), 역사적 변동성 자리
 │   └── Greeks.py       # Black-Scholes 닫힌 해 Delta, Gamma, Vega
 ├── DB/
-│   └── DBConn.py       # MySQL 연결 → pandas DataFrame
+│   └── DBConn.py       # MySQL 연결 → 쿼리 결과를 dict 리스트로 반환
 └── main.py             # 실행/테스트용 스크립트
 ```
 
@@ -44,7 +44,9 @@ pyquant-pricer/
   덕분에 같은 엔진으로 유러피안·아메리칸을 모두 계산하고, 새 상품은 payoff만 추가하면 됩니다.
 - **Product**는 Market을 import하지 않습니다. 변동성·금리는 스칼라로 받습니다.
 - **Market**은 Product의 가격식을 역으로 이용합니다. (예: `ImpVol`은 `EurOpt.VanillaOpt`를 Newton에 넘겨 σ를 역산)
-- `Product`는 **평가 방법별 모듈**로 나뉘고, 모듈마다 같은 이름의 함수(`VanillaOpt`)를 둡니다. 모듈 이름으로 구분해서 호출합니다. (예: `EurOpt.VanillaOpt`, `AmeOpt.VanillaOpt`)
+- `Product`는 **평가 방법별 모듈**로 나뉘고, 모듈마다 같은 이름의 함수(`VanillaOpt`, `DigitalOpt`)를 둡니다. 모듈 이름으로 구분해서 호출합니다. (예: `EurOpt.VanillaOpt`, `AmeOpt.VanillaOpt`)
+- `Product`와 `Market.Vol`의 함수는 만기를 `T`가 아니라 **날짜(`startDate`, `expDate`)**로 받고, 내부에서 `Time2Mat(conv="ACT/365")`로 연 단위 기간을 계산합니다. 날짜는 `ConvDate`가 받는 형식(`20250101`, `"2025-01-01"`, `date` 등) 모두 가능합니다.
+- `Market.Greeks`와 `Core`는 연 단위 기간 `T`를 직접 받습니다.
 
 ## 구현된 기능
 
@@ -174,34 +176,46 @@ $$S^{(i)}_{t+\Delta t} = S^{(i)}_t \exp\left[\left(R - Q_i - \tfrac{1}{2}\sigma_
 
 | 함수 | 설명 |
 |---|---|
-| `VanillaOpt(S, K, T, sigma, R, Q=0.0, isCall=True)` | Black-Scholes(-Merton) / Garman-Kohlhagen 유러피안 옵션 |
-| `DigitalOpt(S, K, T, sigma, R, cpn1, cpn2, Q=0.0)` | 디지털 옵션: 만기 주가가 `K` 초과면 `cpn2`, 이하면 `cpn1` 지급 |
+| `VanillaOpt(S, K, startDate, expDate, sigma, R, Q=0.0, isCall=True)` | Black-Scholes(-Merton) / Garman-Kohlhagen 유러피안 옵션 |
+| `DigitalOpt(S, K, startDate, expDate, sigma, R, cpnLow, cpnHigh, Q=0.0)` | 디지털 옵션: 만기 주가가 `K` 초과면 `cpnHigh`, 이하면 `cpnLow` 지급 |
 
 - 주식과 FX가 같은 식을 공유합니다. FX 옵션은 `R` = 국내 금리, `Q` = 외국 금리로 넣습니다.
 - 콜/풋은 `cpFlag`(콜 `+1`, 풋 `−1`)로 하나의 식에 통합했습니다.
 - `T == 0`이면 내재가치(만기 지급액)를 반환합니다.
-- 두 함수 모두 `(S, K, T, sigma, R, ...)` 순서로 인자를 받습니다.
+- 두 함수 모두 `(S, K, startDate, expDate, sigma, R, ...)` 순서로 인자를 받습니다.
 
 $$d_1 = \frac{\ln(S/K) + (R - Q + \tfrac{1}{2}\sigma^2)T}{\sigma\sqrt{T}}, \quad d_2 = d_1 - \sigma\sqrt{T}$$
 
 $$V_{vanilla} = \text{cpFlag}\cdot\left[S e^{-QT} N(\text{cpFlag}\cdot d_1) - K e^{-RT} N(\text{cpFlag}\cdot d_2)\right]$$
 
-$$V_{digital} = e^{-RT}\left[\text{cpn2}\cdot N(d_2) + \text{cpn1}\cdot N(-d_2)\right]$$
+$$V_{digital} = e^{-RT}\left[\text{cpnHigh}\cdot N(d_2) + \text{cpnLow}\cdot N(-d_2)\right]$$
 
 ### `Product/AmeOpt.py`
 
 | 함수 | 설명 |
 |---|---|
-| `VanillaOpt(S, K, T, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True)` | `Core.Tree.CRRTree`로 계산하는 바닐라 옵션 (아메리칸/유러피안 선택) |
+| `VanillaOpt(S, K, startDate, expDate, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True)` | `Core.Tree.CRRTree`로 계산하는 바닐라 옵션 (아메리칸/유러피안 선택) |
+| `DigitalOpt(S, K, startDate, expDate, sigma, R, cpnLow, cpnHigh, Q=0.0, N=252, isAmerican=True)` | `CRRTree`로 계산하는 디지털 옵션 (아메리칸이면 원터치) |
 
-- 함수 안에서 `K`와 `cpFlag`를 기억하는 payoff 함수(클로저)를 만들어 `CRRTree`에 넘깁니다.
-- `isAmerican=False`는 스텝 수를 늘릴수록 `EurOpt.VanillaOpt`로 수렴하므로, 두 방법을 서로 검증하는 데 쓸 수 있습니다.
+- 함수 안에서 `K`, `cpFlag`, 쿠폰을 기억하는 payoff 함수(클로저)를 만들어 `CRRTree`에 넘깁니다.
+- payoff는 만기 노드 전체(배열)를 한 번에 받으므로 `if` 대신 numpy `maximum` / `where`로 **원소별**로 계산합니다.
+- `isAmerican=False`는 스텝 수를 늘릴수록 `EurOpt`의 닫힌 해로 수렴하므로, 두 방법을 서로 검증하는 데 쓸 수 있습니다.
+- **인자 순서 주의**: `VanillaOpt`만 `R, sigma` 순서이고, `DigitalOpt`와 `EurOpt`의 함수들은 `sigma, R` 순서입니다. 키워드 인자로 호출하는 것을 권장합니다.
+
+**디지털 옵션 관련 주의**
+
+- `isAmerican=True`(기본값)면 노드마다 `max(계속보유, 행사)`를 하므로, 주가가 K를 처음 넘는 순간 `cpnHigh`를 받는 **원터치(One-Touch) 옵션**이 됩니다. 일반 디지털은 `isAmerican=False`로 계산합니다.
+- payoff가 K에서 불연속이라 **노드가 정확히 K에 놓이면 오차가 커집니다.** ATM이고 총 스텝 수가 짝수면 가운데 노드가 K에 놓여 값이 낮게 나옵니다. 총 스텝 수를 홀수로 맞추면 크게 개선됩니다.
+
+| 연간 스텝 `N` (T = 1) | 252 | 253 | 1000 | 1001 | 닫힌 해 |
+|---|---|---|---|---|---|
+| 유러피안 디지털 (0 / 10) | 4.8022 | 5.0459 | 4.9234 | 5.0458 | 5.0457 |
 
 ### `Product/Fwd.py`
 
 | 함수 | 설명 |
 |---|---|
-| `EquityFwd(S, T, R, Q=0.0, B=0.0)` | 주식 선도가격 (연속 배당수익률 `Q`, 대차 수수료율 `B`) |
+| `EquityFwd(S, startDate, expDate, R, Q=0.0, B=0.0)` | 주식 선도가격 (연속 배당수익률 `Q`, 대차 수수료율 `B`) |
 
 $$F = S\,e^{(R - Q - B)T}$$
 
@@ -223,7 +237,7 @@ $$r(\tau) = r_i + (r_{i+1} - r_i)\frac{\tau - \tau_i}{\tau_{i+1} - \tau_i}, \qqu
 
 | 함수 | 설명 |
 |---|---|
-| `ImpVol(OptPrice, S, K, T, R, Q=0.0, initVol=None, isCall=True)` | 유러피안 옵션 가격에서 Black-Scholes 내재변동성 역산 |
+| `ImpVol(OptPrice, S, K, startDate, expDate, R, Q=0.0, initVol=None, isCall=True)` | 유러피안 옵션 가격에서 Black-Scholes 내재변동성 역산 |
 | `HistVol(priceArray, volType="SMA", window=252, decayFactor=0.94)` | 역사적 변동성 (SMA / EWMA) — 작업 중 |
 
 - `initVol`을 생략하면 **Manaster & Koehler (1982)** 초기값을 씁니다. 옵션 가격을 σ의 함수로 보면 이 점이 변곡점(vega 최대점)이므로, 여기서 출발한 Newton은 단조롭게 수렴합니다. ATM($F \approx K$)이면 0.2를 씁니다.
@@ -251,7 +265,7 @@ $$\Delta_{call} = e^{-QT}N(d_1), \quad \Delta_{put} = e^{-QT}\left[N(d_1) - 1\ri
 
 | 함수 | 설명 |
 |---|---|
-| `LoadDB(strQuery)` | MySQL에 쿼리를 보내 결과를 `pandas.DataFrame`으로 반환 |
+| `LoadDB(strQuery)` | MySQL에 쿼리를 보내 결과를 **dict 리스트**로 반환 (`DictCursor`, 예: `[{"date": ..., "rate": 0.03}, ...]`) |
 
 - 접속 정보는 `DB/.env`에서 읽습니다. 이 파일은 `.gitignore`에 포함되어 **커밋되지 않습니다.**
 
@@ -297,22 +311,31 @@ CND(1.96)
 from Product import EurOpt, AmeOpt
 from Product.Fwd import EquityFwd
 
+d0, d1 = 20250101, 20260101   # 365일 → ACT/365 기준 T = 1.0
+
 # Black-Scholes
-EurOpt.VanillaOpt(S=100, K=100, T=1.0, sigma=0.2, R=0.03)                 # 9.4134 (Call)
-EurOpt.VanillaOpt(S=100, K=100, T=1.0, sigma=0.2, R=0.03, isCall=False)   # 6.4579 (Put)
-EurOpt.DigitalOpt(S=100, K=100, T=1.0, sigma=0.2, R=0.03, cpn1=0, cpn2=10)  # 5.0457 (K 초과 시 10 지급)
+EurOpt.VanillaOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03)                # 9.4134 (Call)
+EurOpt.VanillaOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03, isCall=False)  # 6.4579 (Put)
+EurOpt.DigitalOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03,
+                  cpnLow=0, cpnHigh=10)                                                      # 5.0457 (K 초과 시 10 지급)
 
 # Garman-Kohlhagen (USD/KRW 1,400, 원화 3%, 달러 4.5%, 변동성 10%)
-EurOpt.VanillaOpt(S=1400, K=1400, T=1.0, sigma=0.1, R=0.03, Q=0.045)                # 44.26 (Call)
-EurOpt.VanillaOpt(S=1400, K=1400, T=1.0, sigma=0.1, R=0.03, Q=0.045, isCall=False)  # 64.49 (Put)
+EurOpt.VanillaOpt(S=1400, K=1400, startDate=d0, expDate=d1, sigma=0.1, R=0.03, Q=0.045)                # 44.26 (Call)
+EurOpt.VanillaOpt(S=1400, K=1400, startDate=d0, expDate=d1, sigma=0.1, R=0.03, Q=0.045, isCall=False)  # 64.49 (Put)
 
-# 이항트리
-AmeOpt.VanillaOpt(S=100, K=100, T=1.0, R=0.03, sigma=0.2, isCall=False)                            # 6.7392 (아메리칸 풋)
-AmeOpt.VanillaOpt(S=100, K=100, T=1.0, R=0.03, sigma=0.2, isCall=False, isAmerican=False)          # 6.4501 (유러피안 풋)
-AmeOpt.VanillaOpt(S=100, K=100, T=1.0, R=0.03, sigma=0.2, isCall=False, N=2000, isAmerican=False)  # 6.4570 → BS로 수렴
+# 이항트리 바닐라
+AmeOpt.VanillaOpt(S=100, K=100, startDate=d0, expDate=d1, R=0.03, sigma=0.2, isCall=False)                            # 6.7392 (아메리칸 풋)
+AmeOpt.VanillaOpt(S=100, K=100, startDate=d0, expDate=d1, R=0.03, sigma=0.2, isCall=False, isAmerican=False)          # 6.4501 (유러피안 풋)
+AmeOpt.VanillaOpt(S=100, K=100, startDate=d0, expDate=d1, R=0.03, sigma=0.2, isCall=False, N=2000, isAmerican=False)  # 6.4570 → BS로 수렴
+
+# 이항트리 디지털
+AmeOpt.DigitalOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03,
+                  cpnLow=0, cpnHigh=10, N=253, isAmerican=False)   # 5.0459 (홀수 스텝, 닫힌 해 5.0457)
+AmeOpt.DigitalOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03,
+                  cpnLow=0, cpnHigh=10)                            # 9.5134 (아메리칸 = 원터치)
 
 # 선도
-EquityFwd(S=100, T=1.0, R=0.03, Q=0.01)   # 102.0201
+EquityFwd(S=100, startDate=d0, expDate=d1, R=0.03, Q=0.01)   # 102.0201
 ```
 
 ```python
@@ -321,7 +344,7 @@ from Market.Greeks import Delta, Gamma, Vega
 from Market.Curve import LoadDF
 
 # 내재변동성: 가격 → σ 왕복
-ImpVol(OptPrice=9.4134, S=100, K=100, T=1.0, R=0.03)   # ≈ 0.2000
+ImpVol(OptPrice=9.4134, S=100, K=100, startDate=20250101, expDate=20260101, R=0.03)   # ≈ 0.2000
 
 # 그릭스
 Delta(S=100, K=100, T=1.0, sigma=0.2, R=0.03)   # 0.5987
@@ -384,8 +407,7 @@ CRRTree(100, 1.0, 0.03, 0.2, digitalCall)
 pip install -r requirements.txt
 ```
 
-- 의존성: `holidays`, `python-dateutil`, `numpy`
-- `DB` 모듈 사용 시 추가: `pymysql`, `python-dotenv`, `pandas`
+- 의존성: `holidays`, `python-dateutil`, `numpy`, `pymysql`, `python-dotenv` (뒤의 두 개는 `DB` 모듈용)
 - 모든 import는 저장소 루트 기준입니다. 모듈 파일을 직접 실행할 때는 루트에서 `-m` 옵션을 사용하세요.
   ```bash
   python -m Core.MC        # O
