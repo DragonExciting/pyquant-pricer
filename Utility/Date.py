@@ -43,10 +43,7 @@ def IsHoliday(dateParam, exchange="XKRX"):
     convDate = ConvDate(dateParam)
     weekday = convDate.isoweekday()
     exchangeHoliday = LoadHoliday(exchange=exchange, year=convDate.year)
-    if weekday > 5 or convDate in exchangeHoliday:
-        return True
-    else:
-        return False
+    return bool(weekday > 5 or convDate in exchangeHoliday)
 
 
 def AdjustHoliday(dateParam, exchange="XKRX", convention="MF"):

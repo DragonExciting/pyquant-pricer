@@ -56,7 +56,7 @@ def BlackScholes(S, T, R, sigma, corr=None, Q=None, N=252, numsSim=10_000):
     # 숄레츠키 분해
     L = Cholesky(corr=corr)
 
-    totalStep = max(int(round(T * N)), 1)
+    totalStep = max(round(T * N), 1)
     dT = T / totalStep
     half = numsSim // 2
     # 분산감소기법: Antithetic
