@@ -5,8 +5,19 @@ from Core.Analytic import BSVanilla
 from Market.Greeks import Vega
 
 
-def ImpVol(OptPrice, S, K, startDate, expDate, R, Q=0.0, initVol=None, isCall=True):
-    T = Time2Mat(startDate, expDate, conv="ACT/365")
+def ImpVol(
+    OptPrice,
+    S,
+    K,
+    startDate,
+    expDate,
+    R,
+    Q=0.0,
+    initVol=None,
+    isCall=True,
+    conv="ACT/365",
+):
+    T = Time2Mat(startDate, expDate, conv=conv)
     if T <= 0 or T == None:
         raise ValueError("Incorrect Input")
 
