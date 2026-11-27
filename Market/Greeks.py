@@ -1,4 +1,4 @@
-from Utility.Math import exp, sqrt, PDF, log, CND
+from Utility.Math import CND, PDF, exp, log, sqrt
 
 
 def Vega(S, K, T, sigma, R, Q=0.0):

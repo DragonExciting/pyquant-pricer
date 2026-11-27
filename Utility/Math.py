@@ -1,6 +1,7 @@
-from numpy import array, sqrt, pi, exp, cos, sin, log, prod, zeros
 from time import time
+
 from numba import vectorize
+from numpy import array, cos, exp, log, pi, prod, sin, sqrt, zeros
 
 
 def PDF(x):

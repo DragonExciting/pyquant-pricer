@@ -1,8 +1,9 @@
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 from pymysql import connect
 from pymysql.cursors import DictCursor
-from dotenv import load_dotenv
-from pathlib import Path
-import os
 
 load_dotenv(Path(__file__).parent / ".env")
 # Path(__file__) 현재 파일이 위치한 폴더 안

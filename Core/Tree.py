@@ -1,5 +1,6 @@
-from Utility.Math import exp, sqrt
 from numpy import arange, maximum
+
+from Utility.Math import exp, sqrt
 
 """
 Cox, Ross and Rubinstein in 1979

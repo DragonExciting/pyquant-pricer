@@ -1,5 +1,5 @@
-from Utility.Math import exp
 from Utility.Date import Time2Mat
+from Utility.Math import exp
 
 
 def EquityFwd(S, startDate, expDate, R, Q=0.0, B=0.0, conv="ACT/365"):

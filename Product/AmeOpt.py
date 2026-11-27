@@ -1,6 +1,7 @@
+from numpy import maximum, where
+
 from Core.Tree import CRRTree
 from Utility.Date import Time2Mat
-from numpy import maximum, where
 
 
 def VanillaOpt(

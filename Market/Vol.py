@@ -1,8 +1,8 @@
-from Utility.Solver import Newton, Bisection
-from Utility.Math import exp, log, sqrt
-from Utility.Date import Time2Mat
 from Core.Analytic import BSVanilla
 from Market.Greeks import Vega
+from Utility.Date import Time2Mat
+from Utility.Math import exp, log, sqrt
+from Utility.Solver import Bisection, Newton
 
 
 def ImpVol(
