@@ -2,8 +2,8 @@ from Utility.Math import exp
 from Utility.Date import Time2Mat
 
 
-def EquityFwd(S, startDate, expDate, R, Q=0.0, B=0.0):
-    T = Time2Mat(startDate=startDate, endDate=expDate, conv="ACT/365")
+def EquityFwd(S, startDate, expDate, R, Q=0.0, B=0.0, conv="ACT/365"):
+    T = Time2Mat(startDate=startDate, endDate=expDate, conv=conv)
     if T is None:
         raise ValueError("Incorrect Input")
     if S <= 0 or T < 0:

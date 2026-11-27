@@ -43,9 +43,20 @@ def VanillaOpt(
 
 
 def DigitalOpt(
-    S, K, startDate, expDate, sigma, R, cpnLow, cpnHigh, Q=0.0, N=252, isAmerican=True
+    S,
+    K,
+    startDate,
+    expDate,
+    sigma,
+    R,
+    cpnLow,
+    cpnHigh,
+    Q=0.0,
+    N=252,
+    isAmerican=True,
+    conv="ACT/365",
 ):
-    T = Time2Mat(startDate=startDate, endDate=expDate, conv="ACT/365")
+    T = Time2Mat(startDate=startDate, endDate=expDate, conv=conv)
     if T is None:
         raise ValueError("Incorrect Input")
     if sigma <= 0 or S <= 0 or T < 0:
