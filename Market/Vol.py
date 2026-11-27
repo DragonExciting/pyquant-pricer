@@ -18,7 +18,9 @@ def ImpVol(
     conv="ACT/365",
 ):
     T = Time2Mat(startDate, expDate, conv=conv)
-    if T <= 0 or T == None:
+    if T is None:
+        raise ValueError("Incorrect Input")
+    if T <= 0:
         raise ValueError("Incorrect Input")
 
     def _TheoPrice(sigma):
