@@ -1,5 +1,5 @@
 from Core.Analytic import BSVanilla
-from Market.Greeks import Vega
+from Market.Greeks import BSVega
 from Utility.Date import Time2Mat
 from Utility.Math import exp, log, sqrt
 from Utility.Solver import Bisection, Newton
@@ -49,7 +49,7 @@ def ImpVol(
     except ValueError:
         impVol = Bisection(rootFunc=_TheoPrice, target=OptPrice, low=1e-4, high=5.0)
 
-    if Vega(S=S, K=K, T=T, R=R, Q=Q, sigma=impVol) < 1e-3:
+    if BSVega(S=S, K=K, T=T, R=R, Q=Q, sigma=impVol) < 1e-3:
         raise ValueError("Vega is too small")
     else:
         return impVol

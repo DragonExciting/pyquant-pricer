@@ -1,7 +1,7 @@
 from Utility.Math import CND, PDF, exp, log, sqrt
 
 
-def Vega(S, K, T, sigma, R, Q=0.0):
+def BSVega(S, K, T, sigma, R, Q=0.0):
     # 블랙숄즈 닫힌해 형식, 풋과 콜 동일
     # 내재변동성 역산시 뉴튼랩슨 알고리즘에 사용
     if sigma <= 0 or S <= 0 or T <= 0:
@@ -10,7 +10,7 @@ def Vega(S, K, T, sigma, R, Q=0.0):
     return S * exp(-Q * T) * sqrt(T) * PDF(d1)
 
 
-def Delta(S, K, T, sigma, R, Q=0.0, isCall=True):
+def BSDelta(S, K, T, sigma, R, Q=0.0, isCall=True):
     if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
 
@@ -33,7 +33,7 @@ def Delta(S, K, T, sigma, R, Q=0.0, isCall=True):
             return exp(-Q * T) * (CND(d1) - 1)
 
 
-def Gamma(S, K, T, sigma, R, Q=0.0):
+def BSGamma(S, K, T, sigma, R, Q=0.0):
     if sigma <= 0 or S <= 0 or T <= 0:
         raise ValueError("Incorrect Input")
 
