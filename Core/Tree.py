@@ -15,7 +15,7 @@ def CRRTree(S, T, R, sigma, payoffFunc, Q=0.0, N=252, earlyExercise=False):
     elif T == 0:
         return payoffFunc(S)
     elif T > 0:
-        step = max(int(round(N * T)), 1)
+        step = max(round(N * T), 1)
         dT = T / step
         u = exp(sigma * sqrt(dT))
         d = 1 / u
