@@ -1,5 +1,6 @@
 from numpy import array, sqrt, pi, exp, cos, sin, log, prod, zeros
 from time import time
+from numba import vectorize
 
 
 def PDF(x):
@@ -157,6 +158,8 @@ _c7 = 0.0000002888167364
 _c8 = 0.0000003960315187
 
 
+# @vectorize: 스칼라만 받는 함수를 numpy ufunc로 바꿔서 배열도 받을 수 있게 변환시켜줌
+@vectorize(["float64(float64)"])
 def InvCDF(uniRnd):
     y = uniRnd - 0.5
     if abs(y) < 0.42:
