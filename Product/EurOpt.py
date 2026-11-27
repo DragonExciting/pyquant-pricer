@@ -17,7 +17,6 @@ def DigitalOpt(
     cpnLow,
     cpnHigh,
     Q=0.0,
-    isCall=True,
     conv="ACT/365",
 ):
     T = Time2Mat(startDate=startDate, endDate=expDate, conv=conv)
@@ -30,5 +29,4 @@ def DigitalOpt(
         sigma=sigma,
         cpnLow=cpnLow,
         cpnHigh=cpnHigh,
-        isCall=isCall,
     )

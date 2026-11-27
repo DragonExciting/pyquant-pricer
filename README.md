@@ -9,7 +9,7 @@ Python으로 직접 구현하는 금융상품 프라이싱 및 리스크 라이�
 |---|---|---|
 | `Utility` | 날짜·영업일, Day Count, 쿠폰 스케줄, 정규분포·역함수, 난수 생성, 숄레츠키 분해, 해찾기(Newton·이분법) | 진행 중 |
 | `Core` | 상품과 무관한 계산 엔진 (닫힌 해, CRR 이항트리, 몬테카를로 경로 생성, BDT·FDM 예정) | 진행 중 |
-| `Product` | 계약 조건(날짜·Day Count·payoff)을 받아 Core 엔진으로 평가 (유러피안·아메리칸·디지털 옵션, 주식 선도, 채권·ELS 예정) | 진행 중 |
+| `Product` | 계약 조건(날짜·Day Count·payoff)을 받아 Core 엔진으로 평가 (유러피안·아메리칸·디지털 옵션, 주식 선도, 고정금리채, ELS 예정) | 진행 중 |
 | `Market` | 할인 커브, 내재변동성, 그릭스 (SABR·Heston 예정) | 진행 중 |
 | `DB` | 시장 데이터 DB 연결 (MySQL) | 진행 중 |
 
@@ -25,30 +25,30 @@ pyquant-pricer/
 │   ├── MC.py           # GBM 몬테카를로 경로 생성 (단일/다자산, FX)
 │   └── FDM.py          # 유한차분법(Crank-Nicolson) 자리
 ├── Product/
-│   ├── EurOpt.py       # 유러피안 바닐라 옵션 (날짜 → T 변환 후 Core.Analytic 호출)
+│   ├── EurOpt.py       # 유러피안 바닐라·디지털 옵션 (날짜 → T 변환 후 Core.Analytic 호출)
 │   ├── AmeOpt.py       # 이항트리 바닐라·디지털 옵션 (아메리칸/유러피안)
 │   ├── Fwd.py          # 주식 선도가격
-│   ├── Bnd.py          # 고정금리채 자리
+│   ├── Bond.py         # 고정금리채 (쿠폰 스케줄 + 커브 할인)
 │   └── ELS.py          # 스텝다운 ELS 자리
 ├── Market/
 │   ├── Curve.py        # 커브에서 할인계수 호출 (zero rate 선형보간)
 │   ├── Vol.py          # 내재변동성 (Newton → 이분법), SABR·Heston 자리
-│   └── Greeks.py       # Black-Scholes 닫힌 해 Delta, Gamma, Vega
+│   └── Greek.py        # Black-Scholes 닫힌 해 Delta, Gamma, Vega
 ├── DB/
 │   └── DBConn.py       # MySQL 연결 → 쿼리 결과를 dict 리스트로 반환
 └── main.py             # 실행/테스트용 스크립트
 ```
 
-의존 방향은 `Utility ← Core ← Product ← Market` 한 방향입니다.
+의존 방향은 `Utility ← Core ← Market ← Product` 한 방향입니다. 아래 계층은 위 계층을 import하지 않으므로 순환 import가 없고, 최종 사용자는 `Product`를 호출합니다.
 
 - **Core**는 *어떻게 계산하는가*(닫힌 해, 트리, 몬테카를로)만 담당하고, 날짜·Day Count 같은 계약 조건은 모릅니다. 만기는 연 단위 기간 **`T`**로 받습니다.
 - **Product**는 *무엇을 계산하는가*(계약 기간, payoff, 행사 규칙)를 정의합니다. 만기를 **날짜(`startDate`, `expDate`)와 `conv`**로 받아 `Time2Mat`으로 `T`를 계산한 뒤 Core 엔진에 넘깁니다.
   - 트리처럼 payoff가 필요한 엔진에는 payoff를 **함수 객체**로 넘깁니다. 덕분에 같은 엔진으로 유러피안·아메리칸을 모두 계산하고, 새 상품은 payoff만 추가하면 됩니다.
   - 날짜는 `ConvDate`가 받는 형식(`20250101`, `"2025-01-01"`, `date` 등) 모두 가능합니다.
-- **Product**는 Market을 import하지 않습니다. 변동성·금리는 스칼라로 받습니다.
-- **Market**은 Core의 가격식을 역으로 이용합니다. (예: `ImpVol`은 `Core.Analytic.BSVanilla`를 Newton에 넘겨 σ를 역산)
-- `Product`는 **평가 방법별 모듈**로 나뉘고, 같은 상품은 같은 이름의 함수(`VanillaOpt`)를 둡니다. 모듈 이름으로 구분해서 호출합니다. (예: `EurOpt.VanillaOpt`, `AmeOpt.VanillaOpt`)
-- `Market.Greeks`는 Core와 같이 `T`를 직접 받고, `Market.Vol.ImpVol`은 날짜를 받습니다(ACT/365 고정).
+- **Market**은 시장 데이터를 가공합니다(커브 보간, 내재변동성, 그릭스). Core의 가격식을 역으로 이용하기도 합니다. (예: `ImpVol`은 `Core.Analytic.BSVanilla`를 Newton에 넘겨 σ를 역산)
+- **Product**는 Market의 결과를 가져다 쓸 수 있습니다. (예: `Bond.FixedBond`는 커브(테너·금리 배열)를 받아 `Market.Curve.LoadDF`로 할인) 옵션·선도는 지금은 변동성·금리를 스칼라로 받습니다.
+- `Product`는 **평가 방법별 모듈**로 나뉘고, 같은 상품은 같은 이름의 함수(`VanillaOpt`, `DigitalOpt`)를 둡니다. 모듈 이름으로 구분해서 호출합니다. (예: `EurOpt.VanillaOpt`, `AmeOpt.VanillaOpt`)
+- `Market.Greek`는 Core와 같이 `T`를 직접 받고, `Market.Vol.ImpVol`은 날짜를 받습니다(ACT/365 고정).
 
 ## 구현된 기능
 
@@ -211,8 +211,9 @@ $$S^{(i)}_{t+\Delta t} = S^{(i)}_t \exp\left[\left(R - Q_i - \tfrac{1}{2}\sigma_
 | 함수 | 설명 |
 |---|---|
 | `VanillaOpt(S, K, startDate, expDate, sigma, R, Q=0.0, isCall=True, conv="ACT/365")` | 유러피안 바닐라 옵션 (주식·FX) |
+| `DigitalOpt(S, K, startDate, expDate, sigma, R, cpnLow, cpnHigh, Q=0.0, conv="ACT/365")` | 유러피안 디지털 옵션 (콜형 `cpnLow=0, cpnHigh=X`, 풋형 `cpnLow=X, cpnHigh=0`) |
 
-- 날짜와 `conv`로 `T = Time2Mat(startDate, expDate, conv)`를 계산한 뒤 `Core.Analytic.BSVanilla`를 호출하는 얇은 래퍼입니다. 값 검사와 가격 계산은 `BSVanilla`가 맡습니다.
+- 날짜와 `conv`로 `T = Time2Mat(startDate, expDate, conv)`를 계산한 뒤 `Core.Analytic.BSVanilla`(`VanillaOpt`) / `BSDigital`(`DigitalOpt`)을 호출하는 얇은 래퍼입니다. 값 검사와 가격 계산은 Core 함수가 맡습니다.
 - FX 옵션은 `R` = 국내 금리, `Q` = 외국 금리로 넣고, 필요하면 `conv="ACT/360"`처럼 Day Count를 바꿉니다.
 
 ### `Product/AmeOpt.py`
@@ -247,6 +248,27 @@ $$F = S\,e^{(R - Q - B)T}$$
 
 - 선도**가격**(Forward Price)이며, 계약 이후 손익인 선도**가치**(Forward Value)와는 다릅니다.
 
+### `Product/Bond.py`
+
+| 함수 | 설명 |
+|---|---|
+| `FixedBond(tenorArray, rateArray, valDate, issueDate, endDate, yearlyCpnNums, cpnRate, stub="L", exchange="XKRX", convention="MF", conv="ACT/ACT", par=10_000)` | 고정금리채의 현재가치 (Dirty price) |
+
+$$PV = \sum_{i:\ t_i > t_{val}} C \cdot DF(\tau_i) + \text{par} \cdot DF(\tau_n), \qquad C = \frac{\text{par} \times \text{cpnRate}}{\text{yearlyCpnNums}}, \quad \tau_i = \text{Time2Mat}(t_{val},\ t_i,\ \text{conv})$$
+
+- **쿠폰 스케줄**은 계약 조건이므로 평가일이 아니라 **발행일(`issueDate`)부터 만기일(`endDate`)까지** `MakeSchedule`로 만듭니다. 평가일이 바뀌어도 일정은 바뀌지 않습니다.
+- **할인**: 휴일 조정된 **지급일**까지의 기간 $\tau_i$를 구해, 커브(`tenorArray`, `rateArray`)에서 `LoadDF`로 할인계수를 가져옵니다. 커브 테너와 같은 Day Count를 `conv`로 지정합니다.
+- **평가일 이후의 지급일만** 더합니다. 평가일 당일에 지급되는 쿠폰은 이미 받은 것으로 보고 제외합니다(`지급일 > 평가일`).
+- 원금 `par`는 마지막 지급일에 쿠폰과 함께 할인합니다. 만기일이 휴일이면 실제 지급일(예: 토요일 → 다음 월요일)까지 할인합니다.
+- 평가일이 만기일 이후면 `ValueError`
+- 반환값은 경과이자를 포함한 **Dirty price**입니다.
+
+**제한 사항 (작업 예정)**
+
+- **Stub 쿠폰**: 모든 구간에 같은 쿠폰 $C$를 지급하는 것으로 계산합니다. 발행일이 쿠폰 주기와 어긋나 stub 구간이 생기면, 실제로는 구간 길이에 비례해 쿠폰이 줄거나(Short) 늘어야(Long) 하므로 값이 틀립니다. 일반 쿠폰 채권(발행일이 쿠폰 주기와 맞는 경우)은 정확합니다.
+- **경과이자·Clean price**는 아직 계산하지 않습니다.
+- 만기일이 월말 휴일이라 MF로 지급일이 **앞당겨지는** 경우, 그 지급일과 만기일 사이에 평가하면 남은 현금흐름이 없어 오류가 납니다.
+
 ### `Market/Curve.py`
 
 | 함수 | 설명 |
@@ -277,19 +299,20 @@ $$\sigma_0 = \sqrt{\frac{2\,|\ln(F/K)|}{T}}, \qquad F = S\,e^{(R-Q)T}$$
 - 계산 순서: `Newton` → 실패하면 `Bisection(low=1e-4, high=5.0)`
 - 구한 σ에서 vega가 `1e-3`보다 작으면 가격이 σ에 거의 반응하지 않아 해가 신뢰할 수 없으므로 `ValueError`를 냅니다. (deep ITM/OTM, 만기 직전)
 
-### `Market/Greeks.py`
+### `Market/Greek.py`
 
 | 함수 | 설명 |
 |---|---|
-| `Delta(S, K, T, sigma, R, Q=0.0, isCall=True)` | $\partial V / \partial S$ |
-| `Gamma(S, K, T, sigma, R, Q=0.0)` | $\partial^2 V / \partial S^2$ (콜·풋 동일) |
-| `Vega(S, K, T, sigma, R, Q=0.0)` | $\partial V / \partial \sigma$ (콜·풋 동일), `ImpVol`의 신뢰성 검사에 사용 |
+| `BSDelta(S, K, T, sigma, R, Q=0.0, isCall=True)` | $\partial V / \partial S$ |
+| `BSGamma(S, K, T, sigma, R, Q=0.0)` | $\partial^2 V / \partial S^2$ (콜·풋 동일) |
+| `BSVega(S, K, T, sigma, R, Q=0.0)` | $\partial V / \partial \sigma$ (콜·풋 동일), `ImpVol`의 신뢰성 검사에 사용 |
 
 $$\Delta_{call} = e^{-QT}N(d_1), \quad \Delta_{put} = e^{-QT}\left[N(d_1) - 1\right], \quad \Gamma = \frac{e^{-QT}\phi(d_1)}{S\sigma\sqrt{T}}, \quad \text{Vega} = S e^{-QT}\sqrt{T}\,\phi(d_1)$$
 
 - 연속 배당수익률(FX는 외국 금리) `Q`의 할인 $e^{-QT}$를 모두 반영합니다.
-- 만기(`T == 0`)에서 `Delta`는 payoff의 기울기를 반환합니다: 콜은 $S > K$면 1, 풋은 $S < K$면 −1, 그 외(ATM 포함)는 0
-- `Gamma`는 만기에서 정의되지 않으므로(ATM에서 발산) `T <= 0`이면 `ValueError`를 냅니다.
+- 함수 이름의 `BS` 접두사는 Black-Scholes 모형 기준 그릭스라는 뜻입니다. (SABR·Heston 등 다른 모형의 그릭스와 구분)
+- 만기(`T == 0`)에서 `BSDelta`는 payoff의 기울기를 반환합니다: 콜은 $S > K$면 1, 풋은 $S < K$면 −1, 그 외(ATM 포함)는 0
+- `BSGamma`·`BSVega`는 `T <= 0`이면 `ValueError`를 냅니다. (감마는 만기 ATM에서 발산해 정의되지 않습니다.)
 
 ### `DB/DBConn.py`
 
@@ -359,6 +382,8 @@ d0, d1 = 20250101, 20260101   # 365일 → ACT/365 기준 T = 1.0
 # Product: 만기를 날짜로 입력
 EurOpt.VanillaOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03)                   # 9.4134 (Call)
 EurOpt.VanillaOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03, conv="ACT/360")   # 9.4879 (T = 365/360)
+EurOpt.DigitalOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03, cpnLow=0, cpnHigh=10)  # 5.0457 (콜형)
+EurOpt.DigitalOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03, cpnLow=10, cpnHigh=0)  # 4.6587 (풋형, 합 = 10·e^{-RT})
 
 # Garman-Kohlhagen (USD/KRW 1,400, 원화 3%, 달러 4.5%, 변동성 10%)
 EurOpt.VanillaOpt(S=1400, K=1400, startDate=d0, expDate=d1, sigma=0.1, R=0.03, Q=0.045)                # 44.26 (Call)
@@ -380,17 +405,32 @@ EquityFwd(S=100, startDate=d0, expDate=d1, R=0.03, Q=0.01)   # 102.0201
 ```
 
 ```python
+from Product.Bond import FixedBond
+
+tenors = [0.25, 0.5, 1, 2, 3, 5]
+rates  = [0.030, 0.031, 0.032, 0.033, 0.034, 0.035]
+
+# 3년 만기, 분기 지급, 쿠폰 3.5%, 액면 10,000
+bond = dict(tenorArray=tenors, rateArray=rates, issueDate=20250115, endDate=20280115,
+            yearlyCpnNums=4, cpnRate=0.035, conv="ACT/365")
+
+FixedBond(valDate=20250115, **bond)   # 10024.1464 (발행일, 현금흐름 12개)
+FixedBond(valDate=20260302, **bond)   # 10078.7362 (쿠폰일 사이, 남은 현금흐름 8개)
+FixedBond(valDate=20250415, **bond)   # 10027.1566 (쿠폰 지급일: 당일 쿠폰 제외)
+```
+
+```python
 from Market.Vol import ImpVol
-from Market.Greeks import Delta, Gamma, Vega
+from Market.Greek import BSDelta, BSGamma, BSVega
 from Market.Curve import LoadDF
 
 # 내재변동성: 가격 → σ 왕복
 ImpVol(OptPrice=9.4134, S=100, K=100, startDate=20250101, expDate=20260101, R=0.03)   # ≈ 0.2000
 
 # 그릭스
-Delta(S=100, K=100, T=1.0, sigma=0.2, R=0.03)   # 0.5987
-Gamma(S=100, K=100, T=1.0, sigma=0.2, R=0.03)   # 0.01933
-Vega(S=100, K=100, T=1.0, sigma=0.2, R=0.03)    # 38.667 (σ 1.00 변화 기준)
+BSDelta(S=100, K=100, T=1.0, sigma=0.2, R=0.03)   # 0.5987
+BSGamma(S=100, K=100, T=1.0, sigma=0.2, R=0.03)   # 0.01933
+BSVega(S=100, K=100, T=1.0, sigma=0.2, R=0.03)    # 38.667 (σ 1.00 변화 기준)
 
 # 할인계수
 tenors = [0.25, 0.5, 1, 2, 3, 5]
@@ -468,14 +508,13 @@ pip install -r requirements.txt
 
 - **금리**: BDT 트리(`BDTTree`) — 할인곡선 캘리브레이션(Arrow-Debreu 전진귀납 + Newton) 후 채권·금리옵션 평가
 - **커브**: `Curve` 클래스, par swap 부트스트래핑, DB에서 커브 호출(`LoadCurve`)
-- **채권**: `FixedBond`(가격·YTM·경과이자), 이산 쿠폰·dirty price 기반 `BondFwd`
+- **채권**: `FixedBond`의 stub 쿠폰 일할 계산·경과이자·Clean price·YTM, 이산 쿠폰·dirty price 기반 `BondFwd`
 - **선도**: `EquityFwd`에 이산 배당 차감 추가
 - **변동성**: Shifted SABR, Heston
 - **유한차분법**: `Core/FDM.py` Crank-Nicolson
 - **몬테카를로**: 경로에 payoff 함수를 적용해 할인 평균을 내는 범용 프라이서, Sobol 수열 + `InvCDF` 기반 Quasi-MC, 스텝다운 ELS(`Product/ELS.py`, 낙인, 스노우볼 등)
 - **날짜**: `Time2Mat`에 30/360 Bond Basis (2006 ISDA Definitions 4.16(f)) 지원
 - **리스크**: Theta·Rho, Duration·Convexity, VaR
-- **성능**: `BoxMullerRnd` / `MarsagliaRnd` 벡터화 (현재 Python 반복문 기반)
 
 ## License
 
