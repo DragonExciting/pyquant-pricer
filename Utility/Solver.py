@@ -32,6 +32,7 @@ def Bisection(rootFunc, target, low, high, tol=1e-6, maxTry=100):
     if low >= high:
         raise ValueError("Low must be lower than High")
     i = 0
+    mid = low + (high - low) / 2
     while (high - low) / 2 > tol and i < maxTry:
         mid = low + (high - low) / 2
         diffLow = rootFunc(low) - target

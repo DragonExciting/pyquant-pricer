@@ -12,6 +12,8 @@ https://en.wikipedia.org/wiki/Foreign_exchange_option 참고
 def VanillaOpt(S, K, startDate, expDate, sigma, R, Q=0.0, isCall=True):
     T = Time2Mat(startDate=startDate, endDate=expDate, conv="ACT/365")
     # FX Option으로 사용할 경우, R = 국내 금리, Q = 해외 금리
+    if T is None:
+        raise ValueError("Incorrect Input")
     if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     if isCall:
@@ -32,6 +34,8 @@ def DigitalOpt(S, K, startDate, expDate, sigma, R, cpnLow, cpnHigh, Q=0.0):
     T = Time2Mat(startDate=startDate, endDate=expDate, conv="ACT/365")
     # cpnLow는 기초자산이 행사가 밑일때 지급하는 쿠폰
     # cpnHigh는 기초자산이 행사가 위일때 지급하는 쿠폰
+    if T is None:
+        raise ValueError("Incorrect Input")
     if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
     if T == 0:

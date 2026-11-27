@@ -1,13 +1,25 @@
 from Utility.Solver import Newton, Bisection
 from Utility.Math import exp, log, sqrt
+from Utility.Date import Time2Mat
 from Product.EurOpt import VanillaOpt
 from Market.Greeks import Vega
 from numpy import asarray
 
 
-def ImpVol(OptPrice, S, K, T, R, Q=0.0, initVol=None, isCall=True):
-    def TheoPrice(sigma):
-        return VanillaOpt(S=S, K=K, T=T, sigma=sigma, R=R, Q=Q, isCall=isCall)
+def ImpVol(OptPrice, S, K, startDate, expDate, R, Q=0.0, initVol=None, isCall=True):
+    T = Time2Mat(startDate, expDate, conv="ACT/365")
+
+    def _TheoPrice(sigma):
+        return VanillaOpt(
+            S=S,
+            K=K,
+            startDate=startDate,
+            expDate=expDate,
+            sigma=sigma,
+            R=R,
+            Q=Q,
+            isCall=isCall,
+        )
 
     if initVol == None:
         # The Calculation of Implied Variances from the Black-Scholes Model (Manaster & Koehler, 1982)
@@ -18,13 +30,13 @@ def ImpVol(OptPrice, S, K, T, R, Q=0.0, initVol=None, isCall=True):
 
     try:
         impVol = Newton(
-            rootFunc=TheoPrice,
+            rootFunc=_TheoPrice,
             rootParam=initVol,
             target=OptPrice,
         )
     # 뉴튼랩슨으로 해찾고 실패할 경우, 이분법으로 해찾기
     except ValueError:
-        impVol = Bisection(rootFunc=TheoPrice, target=OptPrice, low=1e-4, high=5.0)
+        impVol = Bisection(rootFunc=_TheoPrice, target=OptPrice, low=1e-4, high=5.0)
 
     if Vega(S=S, K=K, T=T, R=R, Q=Q, sigma=impVol) < 1e-3:
         raise ValueError("Vega is too small")
