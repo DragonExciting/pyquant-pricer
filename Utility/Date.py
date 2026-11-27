@@ -148,9 +148,8 @@ def MakeSchedule(
 
     if scheduleList[0] != convStart:
         scheduleList[0] = convStart
-        if stub == "L":
-            if scheduleList[1] != convEnd:
-                scheduleList.pop(1)
+        if stub == "L" and scheduleList[1] != convEnd:
+            scheduleList.pop(1)
     adjustedSchedule = []
     for j in range(len(scheduleList)):
         adjustedSchedule.append(

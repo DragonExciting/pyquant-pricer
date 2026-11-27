@@ -4,12 +4,22 @@ from numpy import maximum, where
 
 
 def VanillaOpt(
-    S, K, startDate, expDate, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True
+    S,
+    K,
+    startDate,
+    expDate,
+    R,
+    sigma,
+    Q=0.0,
+    isCall=True,
+    N=252,
+    isAmerican=True,
+    conv="ACT/365",
 ):
-    T = Time2Mat(startDate=startDate, endDate=expDate, conv="ACT/365")
+    T = Time2Mat(startDate=startDate, endDate=expDate, conv=conv)
     if T is None:
         raise ValueError("Incorrect Input")
-    if sigma <= 0 or S <= 0 or T < 0:
+    if sigma <= 0 or S <= 0 or T < 0 or K <= 0:
         raise ValueError("Incorrect Input")
     if isCall:
         cpFlag = +1

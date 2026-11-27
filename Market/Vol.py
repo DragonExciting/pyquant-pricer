@@ -1,20 +1,20 @@
 from Utility.Solver import Newton, Bisection
 from Utility.Math import exp, log, sqrt
 from Utility.Date import Time2Mat
-from Product.EurOpt import VanillaOpt
+from Core.Analytic import BSVanilla
 from Market.Greeks import Vega
-from numpy import asarray
 
 
 def ImpVol(OptPrice, S, K, startDate, expDate, R, Q=0.0, initVol=None, isCall=True):
     T = Time2Mat(startDate, expDate, conv="ACT/365")
+    if T <= 0 or T == None:
+        raise ValueError("Incorrect Input")
 
     def _TheoPrice(sigma):
-        return VanillaOpt(
+        return BSVanilla(
             S=S,
             K=K,
-            startDate=startDate,
-            expDate=expDate,
+            T=T,
             sigma=sigma,
             R=R,
             Q=Q,
@@ -44,9 +44,15 @@ def ImpVol(OptPrice, S, K, startDate, expDate, R, Q=0.0, initVol=None, isCall=Tr
         return impVol
 
 
-def HistVol(priceArray, volType="SMA", window=252, decayFactor=0.94):
-    volType = volType.upper()
-    if volType not in ("SMA", "EWMA"):
-        raise ValueError("Incorrect Historical Volatility Type")
-    priceArray = asarray(priceArray, float)
+"""
+SABR volatility model -> Shifted Model로 구축할 예정
+https://en.wikipedia.org/wiki/SABR_volatility_model
+"""
+
+
+def SABR():
+    return
+
+
+def Heston():
     return

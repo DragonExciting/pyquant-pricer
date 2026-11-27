@@ -161,7 +161,7 @@ _c8 = 0.0000003960315187
 # @vectorize: 스칼라만 받는 함수를 numpy ufunc로 바꿔서 배열도 받을 수 있게 변환시켜줌
 @vectorize(["float64(float64)"])
 def InvCDF(uniRnd):
-    if uniRnd in (0, 1):
+    if not (0 < uniRnd < 1):
         raise ValueError("Uniform Random Numbers must not be 0 or 1")
     y = uniRnd - 0.5
     if abs(y) < 0.42:

@@ -12,7 +12,7 @@ https://en.wikipedia.org/wiki/Monte_Carlo_method 참고
 def _BlackSholesSingle(S, T, R, sigma, Q=0.0, N=252, numsSim=10_000):
     if sigma <= 0 or S <= 0 or T < 0:
         raise ValueError("Incorrect Input")
-    totalStep = max(int(round(T * N)), 1)
+    totalStep = max(round(T * N), 1)
     dT = T / totalStep
     half = numsSim // 2
     # 분산감소기법: Antithetic

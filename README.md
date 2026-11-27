@@ -7,30 +7,32 @@ Python으로 직접 구현하는 금융상품 프라이싱 및 리스크 라이�
 
 | 모듈 | 역할 | 상태 |
 |---|---|---|
-| `Utility` | 날짜·영업일, Day Count, 쿠폰 스케줄, 정규분포, 난수 생성, 숄레츠키 분해, 해찾기(Newton·이분법) | 진행 중 |
-| `Core` | 상품과 무관한 수치 엔진 (CRR 이항트리, 몬테카를로 경로 생성, BDT·FDM 예정) | 진행 중 |
-| `Product` | 개별 상품 평가 (유러피안·아메리칸·디지털 옵션, 주식 선도, 채권 예정) | 진행 중 |
-| `Market` | 할인 커브, 내재변동성, 그릭스 | 진행 중 |
+| `Utility` | 날짜·영업일, Day Count, 쿠폰 스케줄, 정규분포·역함수, 난수 생성, 숄레츠키 분해, 해찾기(Newton·이분법) | 진행 중 |
+| `Core` | 상품과 무관한 계산 엔진 (닫힌 해, CRR 이항트리, 몬테카를로 경로 생성, BDT·FDM 예정) | 진행 중 |
+| `Product` | 계약 조건(날짜·Day Count·payoff)을 받아 Core 엔진으로 평가 (유러피안·아메리칸·디지털 옵션, 주식 선도, 채권·ELS 예정) | 진행 중 |
+| `Market` | 할인 커브, 내재변동성, 그릭스 (SABR·Heston 예정) | 진행 중 |
 | `DB` | 시장 데이터 DB 연결 (MySQL) | 진행 중 |
 
 ```
 pyquant-pricer/
 ├── Utility/
 │   ├── Date.py         # 날짜 변환, 휴일/영업일, Day Count, 쿠폰 스케줄
-│   ├── Math.py         # 정규분포, 유사난수(LCG), Box-Muller, Marsaglia, 숄레츠키 분해
+│   ├── Math.py         # 정규분포·역함수(Moro), 유사난수(LCG), Box-Muller, Marsaglia, 숄레츠키 분해
 │   └── Solver.py       # 해찾기: Newton-Raphson(중앙차분), 이분법
 ├── Core/
+│   ├── Analytic.py     # 닫힌 해: Black-Scholes / Garman-Kohlhagen, Black-76, 디지털
 │   ├── Tree.py         # CRR 이항트리 엔진 (payoff 함수를 받아 후진귀납), BDT 자리
 │   ├── MC.py           # GBM 몬테카를로 경로 생성 (단일/다자산, FX)
 │   └── FDM.py          # 유한차분법(Crank-Nicolson) 자리
 ├── Product/
-│   ├── EurOpt.py       # Black-Scholes / Garman-Kohlhagen 닫힌 해 (바닐라, 디지털)
+│   ├── EurOpt.py       # 유러피안 바닐라 옵션 (날짜 → T 변환 후 Core.Analytic 호출)
 │   ├── AmeOpt.py       # 이항트리 바닐라·디지털 옵션 (아메리칸/유러피안)
 │   ├── Fwd.py          # 주식 선도가격
-│   └── Bnd.py          # 고정금리채 자리
+│   ├── Bnd.py          # 고정금리채 자리
+│   └── ELS.py          # 스텝다운 ELS 자리
 ├── Market/
 │   ├── Curve.py        # 커브에서 할인계수 호출 (zero rate 선형보간)
-│   ├── Vol.py          # 내재변동성 (Newton → 이분법), 역사적 변동성 자리
+│   ├── Vol.py          # 내재변동성 (Newton → 이분법), SABR·Heston 자리
 │   └── Greeks.py       # Black-Scholes 닫힌 해 Delta, Gamma, Vega
 ├── DB/
 │   └── DBConn.py       # MySQL 연결 → 쿼리 결과를 dict 리스트로 반환
@@ -39,14 +41,14 @@ pyquant-pricer/
 
 의존 방향은 `Utility ← Core ← Product ← Market` 한 방향입니다.
 
-- **Core**는 *어떻게 계산하는가*(수치 방법)만 담당하고, 행사가·콜/풋 같은 계약 조건은 모릅니다.
-- **Product**는 *무엇을 계산하는가*(payoff, 행사 규칙)를 정의하고, payoff를 **함수 객체**로 Core 엔진에 넘깁니다.
-  덕분에 같은 엔진으로 유러피안·아메리칸을 모두 계산하고, 새 상품은 payoff만 추가하면 됩니다.
+- **Core**는 *어떻게 계산하는가*(닫힌 해, 트리, 몬테카를로)만 담당하고, 날짜·Day Count 같은 계약 조건은 모릅니다. 만기는 연 단위 기간 **`T`**로 받습니다.
+- **Product**는 *무엇을 계산하는가*(계약 기간, payoff, 행사 규칙)를 정의합니다. 만기를 **날짜(`startDate`, `expDate`)와 `conv`**로 받아 `Time2Mat`으로 `T`를 계산한 뒤 Core 엔진에 넘깁니다.
+  - 트리처럼 payoff가 필요한 엔진에는 payoff를 **함수 객체**로 넘깁니다. 덕분에 같은 엔진으로 유러피안·아메리칸을 모두 계산하고, 새 상품은 payoff만 추가하면 됩니다.
+  - 날짜는 `ConvDate`가 받는 형식(`20250101`, `"2025-01-01"`, `date` 등) 모두 가능합니다.
 - **Product**는 Market을 import하지 않습니다. 변동성·금리는 스칼라로 받습니다.
-- **Market**은 Product의 가격식을 역으로 이용합니다. (예: `ImpVol`은 `EurOpt.VanillaOpt`를 Newton에 넘겨 σ를 역산)
-- `Product`는 **평가 방법별 모듈**로 나뉘고, 모듈마다 같은 이름의 함수(`VanillaOpt`, `DigitalOpt`)를 둡니다. 모듈 이름으로 구분해서 호출합니다. (예: `EurOpt.VanillaOpt`, `AmeOpt.VanillaOpt`)
-- `Product`와 `Market.Vol`의 함수는 만기를 `T`가 아니라 **날짜(`startDate`, `expDate`)**로 받고, 내부에서 `Time2Mat(conv="ACT/365")`로 연 단위 기간을 계산합니다. 날짜는 `ConvDate`가 받는 형식(`20250101`, `"2025-01-01"`, `date` 등) 모두 가능합니다.
-- `Market.Greeks`와 `Core`는 연 단위 기간 `T`를 직접 받습니다.
+- **Market**은 Core의 가격식을 역으로 이용합니다. (예: `ImpVol`은 `Core.Analytic.BSVanilla`를 Newton에 넘겨 σ를 역산)
+- `Product`는 **평가 방법별 모듈**로 나뉘고, 같은 상품은 같은 이름의 함수(`VanillaOpt`)를 둡니다. 모듈 이름으로 구분해서 호출합니다. (예: `EurOpt.VanillaOpt`, `AmeOpt.VanillaOpt`)
+- `Market.Greeks`는 Core와 같이 `T`를 직접 받고, `Market.Vol.ImpVol`은 날짜를 받습니다(ACT/365 고정).
 
 ## 구현된 기능
 
@@ -92,6 +94,7 @@ $$\text{DCF}_{30E/360} = \frac{360(Y_2 - Y_1) + 30(M_2 - M_1) + (D_2 - D_1)}{360
 | `GenRnd()` | 선형합동생성기(LCG)로 `(0, 1)` 균등난수 2개 생성 |
 | `BoxMullerRnd(shape=1)` | Box-Muller 변환으로 원하는 shape의 표준정규난수 배열 생성 (`int` 또는 `tuple`) |
 | `MarsagliaRnd(shape=1)` | Marsaglia polar method로 표준정규난수 배열 생성 (sin·cos 미사용) |
+| `InvCDF(u)` | 표준정규분포 누적분포함수의 역함수 $\Phi^{-1}(u)$ (Moro 근사), 스칼라·배열 모두 가능 |
 | `Cholesky(corr)` | 상관행렬을 하삼각행렬 $L$로 분해 ($\rho = LL^T$), 직접 구현 |
 
 - `CND`: Abramowitz & Stegun (1964) 다항 근사, 오차 약 $10^{-7}$ 수준
@@ -107,6 +110,14 @@ $$Z_1 = \sqrt{-2\ln U_1}\cos(2\pi U_2), \quad Z_2 = \sqrt{-2\ln U_1}\sin(2\pi U_
 
 $$s = V_1^2 + V_2^2, \quad Z_{1,2} = V_{1,2}\sqrt{\frac{-2\ln s}{s}}$$
 
+- `InvCDF`: 균등난수 $U$를 $Z = \Phi^{-1}(U)$로 바꾸는 **Inverse CDF 방법**입니다. U 하나가 Z 하나에 단조롭게 대응하므로, 차원을 섞거나(Box-Muller) 기각으로 숫자를 건너뛰는(Marsaglia) 일이 없습니다. 그래서 Sobol 같은 저불일치 수열(Quasi-MC)에 사용할 수 있습니다.
+  - Φ⁻¹에는 닫힌 해가 없어 **Moro (1995, "The Full Monte")** 근사를 씁니다. 중앙 $|u - 0.5| < 0.42$는 Beasley-Springer 유리함수, 꼬리는 $r = \ln(-\ln(\min(u, 1-u)))$의 8차 다항식입니다.
+
+$$x = y\,\frac{\sum_{n=0}^{3} a_n y^{2n}}{1 + \sum_{n=0}^{3} b_n y^{2n+2}} \ \ (y = u - 0.5), \qquad x = \pm\sum_{n=0}^{8} c_n r^n \ \ (\text{꼬리})$$
+
+  - 최대 절대오차 약 $3 \times 10^{-9}$ (정확한 역함수와 비교, $10^{-10} \le u \le 1 - 10^{-8}$)
+  - `numba`의 `@vectorize`로 스칼라 함수를 numpy ufunc로 컴파일하므로, 배열을 넣으면 원소별로 빠르게 계산합니다. (Python 반복문 대비 약 85배)
+  - `u`가 $(0, 1)$ 밖이면 `ValueError`
 - `Cholesky`: $\rho_{ij}$는 $L$의 i행과 j행의 내적이라는 점을 이용해, 위에서 아래로·왼쪽에서 오른쪽으로 한 원소씩 구합니다. 대각선에서 제곱근 안이 0 이하이면 양의 정부호가 아니므로 `ValueError`를 냅니다.
   - 3×3 손 계산 과정: [`Utility/숄레츠키분해_수기계산.jpg`](Utility/숄레츠키분해_수기계산.jpg)
 
@@ -128,6 +139,29 @@ $$f'(x) \approx \frac{f(x+h) - f(x-h)}{2h}, \qquad x_{n+1} = x_n - \frac{f(x_n) 
   - 양 끝의 부호가 같으면(구간 안에 해가 없으면) `ValueError`
   - `tol`은 **구간 반폭** $(high - low)/2$ 기준
   - `low`, `high`에 기본값을 두지 않아 호출하는 쪽에서 구간을 명시합니다.
+
+### `Core/Analytic.py`
+
+| 함수 | 설명 |
+|---|---|
+| `BSVanilla(S, K, T, sigma, R, Q=0.0, isCall=True)` | Black-Scholes(-Merton) / Garman-Kohlhagen 유러피안 옵션 |
+| `Black(F, K, T, sigma, R, isCall=True)` | Black-76: 선도·선물가격 `F` 기준 유러피안 옵션 |
+| `BSDigital(S, K, T, sigma, R, cpnLow, cpnHigh, Q=0.0)` | 디지털 옵션: 만기 주가가 `K` 초과면 `cpnHigh`, 이하면 `cpnLow` 지급 |
+
+- 세 함수 모두 `(…, T, sigma, R, …)` 순서로 인자를 받습니다.
+- 주식과 FX가 같은 식을 공유합니다. FX 옵션은 `R` = 국내 금리, `Q` = 외국 금리로 넣습니다.
+- 콜/풋은 `cpFlag`(콜 `+1`, 풋 `−1`)로 하나의 식에 통합했습니다.
+- `T == 0`이면 내재가치(만기 지급액)를 반환합니다. `S`(`F`), `K`, `sigma` ≤ 0 또는 `T` < 0이면 `ValueError`
+
+$$d_1 = \frac{\ln(S/K) + (R - Q + \tfrac{1}{2}\sigma^2)T}{\sigma\sqrt{T}}, \quad d_2 = d_1 - \sigma\sqrt{T}$$
+
+$$V_{vanilla} = \text{cpFlag}\cdot\left[S e^{-QT} N(\text{cpFlag}\cdot d_1) - K e^{-RT} N(\text{cpFlag}\cdot d_2)\right]$$
+
+$$V_{digital} = e^{-RT}\left[\text{cpnHigh}\cdot N(d_2) + \text{cpnLow}\cdot N(-d_2)\right]$$
+
+- `Black`: 선도가격 $F$ 안에 캐리(R − Q)가 이미 들어 있으므로 $d_1$에 금리 항이 없습니다. $F = S e^{(R-Q)T}$를 넣으면 `BSVanilla`와 같은 값이 나옵니다. 선물옵션, 금리옵션(캡·플로어, 스왑션)의 기본식입니다.
+
+$$d_1 = \frac{\ln(F/K) + \tfrac{1}{2}\sigma^2 T}{\sigma\sqrt{T}}, \qquad V = \text{cpFlag}\cdot e^{-RT}\left[F N(\text{cpFlag}\cdot d_1) - K N(\text{cpFlag}\cdot d_2)\right]$$
 
 ### `Core/Tree.py`
 
@@ -176,31 +210,23 @@ $$S^{(i)}_{t+\Delta t} = S^{(i)}_t \exp\left[\left(R - Q_i - \tfrac{1}{2}\sigma_
 
 | 함수 | 설명 |
 |---|---|
-| `VanillaOpt(S, K, startDate, expDate, sigma, R, Q=0.0, isCall=True)` | Black-Scholes(-Merton) / Garman-Kohlhagen 유러피안 옵션 |
-| `DigitalOpt(S, K, startDate, expDate, sigma, R, cpnLow, cpnHigh, Q=0.0)` | 디지털 옵션: 만기 주가가 `K` 초과면 `cpnHigh`, 이하면 `cpnLow` 지급 |
+| `VanillaOpt(S, K, startDate, expDate, sigma, R, Q=0.0, isCall=True, conv="ACT/365")` | 유러피안 바닐라 옵션 (주식·FX) |
 
-- 주식과 FX가 같은 식을 공유합니다. FX 옵션은 `R` = 국내 금리, `Q` = 외국 금리로 넣습니다.
-- 콜/풋은 `cpFlag`(콜 `+1`, 풋 `−1`)로 하나의 식에 통합했습니다.
-- `T == 0`이면 내재가치(만기 지급액)를 반환합니다.
-- 두 함수 모두 `(S, K, startDate, expDate, sigma, R, ...)` 순서로 인자를 받습니다.
-
-$$d_1 = \frac{\ln(S/K) + (R - Q + \tfrac{1}{2}\sigma^2)T}{\sigma\sqrt{T}}, \quad d_2 = d_1 - \sigma\sqrt{T}$$
-
-$$V_{vanilla} = \text{cpFlag}\cdot\left[S e^{-QT} N(\text{cpFlag}\cdot d_1) - K e^{-RT} N(\text{cpFlag}\cdot d_2)\right]$$
-
-$$V_{digital} = e^{-RT}\left[\text{cpnHigh}\cdot N(d_2) + \text{cpnLow}\cdot N(-d_2)\right]$$
+- 날짜와 `conv`로 `T = Time2Mat(startDate, expDate, conv)`를 계산한 뒤 `Core.Analytic.BSVanilla`를 호출하는 얇은 래퍼입니다. 값 검사와 가격 계산은 `BSVanilla`가 맡습니다.
+- FX 옵션은 `R` = 국내 금리, `Q` = 외국 금리로 넣고, 필요하면 `conv="ACT/360"`처럼 Day Count를 바꿉니다.
 
 ### `Product/AmeOpt.py`
 
 | 함수 | 설명 |
 |---|---|
-| `VanillaOpt(S, K, startDate, expDate, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True)` | `Core.Tree.CRRTree`로 계산하는 바닐라 옵션 (아메리칸/유러피안 선택) |
+| `VanillaOpt(S, K, startDate, expDate, R, sigma, Q=0.0, isCall=True, N=252, isAmerican=True, conv="ACT/365")` | `Core.Tree.CRRTree`로 계산하는 바닐라 옵션 (아메리칸/유러피안 선택) |
 | `DigitalOpt(S, K, startDate, expDate, sigma, R, cpnLow, cpnHigh, Q=0.0, N=252, isAmerican=True)` | `CRRTree`로 계산하는 디지털 옵션 (아메리칸이면 원터치) |
 
 - 함수 안에서 `K`, `cpFlag`, 쿠폰을 기억하는 payoff 함수(클로저)를 만들어 `CRRTree`에 넘깁니다.
 - payoff는 만기 노드 전체(배열)를 한 번에 받으므로 `if` 대신 numpy `maximum` / `where`로 **원소별**로 계산합니다.
-- `isAmerican=False`는 스텝 수를 늘릴수록 `EurOpt`의 닫힌 해로 수렴하므로, 두 방법을 서로 검증하는 데 쓸 수 있습니다.
-- **인자 순서 주의**: `VanillaOpt`만 `R, sigma` 순서이고, `DigitalOpt`와 `EurOpt`의 함수들은 `sigma, R` 순서입니다. 키워드 인자로 호출하는 것을 권장합니다.
+- `isAmerican=False`는 스텝 수를 늘릴수록 `Core.Analytic`의 닫힌 해로 수렴하므로, 두 방법을 서로 검증하는 데 쓸 수 있습니다.
+- `DigitalOpt`의 Day Count는 ACT/365로 고정되어 있습니다.
+- **인자 순서 주의**: `AmeOpt.VanillaOpt`만 `R, sigma` 순서이고, 나머지 함수는 모두 `sigma, R` 순서입니다. 키워드 인자로 호출하는 것을 권장합니다.
 
 **디지털 옵션 관련 주의**
 
@@ -237,8 +263,12 @@ $$r(\tau) = r_i + (r_{i+1} - r_i)\frac{\tau - \tau_i}{\tau_{i+1} - \tau_i}, \qqu
 
 | 함수 | 설명 |
 |---|---|
-| `ImpVol(OptPrice, S, K, startDate, expDate, R, Q=0.0, initVol=None, isCall=True)` | 유러피안 옵션 가격에서 Black-Scholes 내재변동성 역산 |
-| `HistVol(priceArray, volType="SMA", window=252, decayFactor=0.94)` | 역사적 변동성 (SMA / EWMA) — 작업 중 |
+| `ImpVol(OptPrice, S, K, startDate, expDate, R, Q=0.0, initVol=None, isCall=True)` | 유러피안 옵션 가격에서 Black-Scholes 내재변동성 역산 (ACT/365) |
+| `SABR()` | SABR 변동성 모형 (Shifted SABR 예정) — 작업 예정 |
+| `Heston()` | Heston 확률변동성 모형 — 작업 예정 |
+
+- `ImpVol`은 `Core.Analytic.BSVanilla`를 σ 하나만 받는 함수(클로저)로 감싸 해찾기에 넘깁니다.
+- 만기 시점 이후(`T <= 0`)에는 옵션 가격이 σ에 반응하지 않아 내재변동성을 정할 수 없으므로 `ValueError`를 냅니다.
 
 - `initVol`을 생략하면 **Manaster & Koehler (1982)** 초기값을 씁니다. 옵션 가격을 σ의 함수로 보면 이 점이 변곡점(vega 최대점)이므로, 여기서 출발한 Newton은 단조롭게 수렴합니다. ATM($F \approx K$)이면 0.2를 씁니다.
 
@@ -308,16 +338,27 @@ CND(1.96)
 ```
 
 ```python
+from Core.Analytic import BSVanilla, Black, BSDigital
+from math import exp
+
+# Core: 만기를 T(연 단위)로 직접 입력
+BSVanilla(S=100, K=100, T=1.0, sigma=0.2, R=0.03)                # 9.4134 (Call)
+BSVanilla(S=100, K=100, T=1.0, sigma=0.2, R=0.03, isCall=False)  # 6.4579 (Put)
+BSDigital(S=100, K=100, T=1.0, sigma=0.2, R=0.03, cpnLow=0, cpnHigh=10)   # 5.0457 (K 초과 시 10 지급)
+
+# Black-76: F = S·e^{(R-Q)T}를 넣으면 BSVanilla(Q=0.02)와 같은 값
+Black(F=100 * exp(0.01), K=100, T=1.0, sigma=0.2, R=0.03)        # 8.2663
+```
+
+```python
 from Product import EurOpt, AmeOpt
 from Product.Fwd import EquityFwd
 
 d0, d1 = 20250101, 20260101   # 365일 → ACT/365 기준 T = 1.0
 
-# Black-Scholes
-EurOpt.VanillaOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03)                # 9.4134 (Call)
-EurOpt.VanillaOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03, isCall=False)  # 6.4579 (Put)
-EurOpt.DigitalOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03,
-                  cpnLow=0, cpnHigh=10)                                                      # 5.0457 (K 초과 시 10 지급)
+# Product: 만기를 날짜로 입력
+EurOpt.VanillaOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03)                   # 9.4134 (Call)
+EurOpt.VanillaOpt(S=100, K=100, startDate=d0, expDate=d1, sigma=0.2, R=0.03, conv="ACT/360")   # 9.4879 (T = 365/360)
 
 # Garman-Kohlhagen (USD/KRW 1,400, 원화 3%, 달러 4.5%, 변동성 10%)
 EurOpt.VanillaOpt(S=1400, K=1400, startDate=d0, expDate=d1, sigma=0.1, R=0.03, Q=0.045)                # 44.26 (Call)
@@ -367,6 +408,14 @@ Bisection(lambda x: x**2, target=2.0, low=0, high=2)  # 1.414213...
 ```
 
 ```python
+import numpy as np
+from Utility.Math import InvCDF
+
+InvCDF(0.975)                          # 1.959964
+InvCDF(np.array([0.025, 0.5, 0.975]))  # [-1.959964, 0., 1.959964]
+```
+
+```python
 from Utility.Math import SetSeed, Cholesky
 from Core.MC import BlackScholes
 
@@ -407,13 +456,13 @@ CRRTree(100, 1.0, 0.03, 0.2, digitalCall)
 pip install -r requirements.txt
 ```
 
-- 의존성: `holidays`, `python-dateutil`, `numpy`, `pymysql`, `python-dotenv` (뒤의 두 개는 `DB` 모듈용)
+- 의존성: `holidays`, `python-dateutil`, `numpy`, `numba`, `pymysql`, `python-dotenv` (뒤의 두 개는 `DB` 모듈용)
 - 모든 import는 저장소 루트 기준입니다. 모듈 파일을 직접 실행할 때는 루트에서 `-m` 옵션을 사용하세요.
   ```bash
   python -m Core.MC        # O
   python Core/MC.py        # X: ModuleNotFoundError: No module named 'Utility'
   ```
-- Python 3.13에서 테스트했습니다.
+- Python 3.12에서 테스트했습니다.
 
 ## TODO
 
@@ -421,9 +470,9 @@ pip install -r requirements.txt
 - **커브**: `Curve` 클래스, par swap 부트스트래핑, DB에서 커브 호출(`LoadCurve`)
 - **채권**: `FixedBond`(가격·YTM·경과이자), 이산 쿠폰·dirty price 기반 `BondFwd`
 - **선도**: `EquityFwd`에 이산 배당 차감 추가
-- **변동성**: `HistVol`(SMA, EWMA) 완성
+- **변동성**: Shifted SABR, Heston
 - **유한차분법**: `Core/FDM.py` Crank-Nicolson
-- **몬테카를로**: 경로에 payoff 함수를 적용해 할인 평균을 내는 범용 프라이서, 스텝다운 ELS(낙인, 스노우볼 등)
+- **몬테카를로**: 경로에 payoff 함수를 적용해 할인 평균을 내는 범용 프라이서, Sobol 수열 + `InvCDF` 기반 Quasi-MC, 스텝다운 ELS(`Product/ELS.py`, 낙인, 스노우볼 등)
 - **날짜**: `Time2Mat`에 30/360 Bond Basis (2006 ISDA Definitions 4.16(f)) 지원
 - **리스크**: Theta·Rho, Duration·Convexity, VaR
 - **성능**: `BoxMullerRnd` / `MarsagliaRnd` 벡터화 (현재 Python 반복문 기반)
