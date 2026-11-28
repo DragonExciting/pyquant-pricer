@@ -15,11 +15,13 @@ def FixedBond(
     convention="MF",
     conv="ACT/ACT",
     par=10_000,
+    dfType="DIS",
 ):
     valDate = ConvDate(valDate)
     endDate = ConvDate(endDate)
     if valDate > endDate:
         raise ValueError("This Bond is expired")
+    cpnAmt = par * cpnRate / yearlyCpnNums
 
     _, payDates = MakeSchedule(
         startDate=issueDate,
@@ -29,16 +31,21 @@ def FixedBond(
         exchange=exchange,
         convention=convention,
     )
-    cpnAmt = par * cpnRate / yearlyCpnNums
+
     a = []
     cpnPV = []
     i = 0
     for d in payDates[1:]:
-        if d > valDate:
+        if d >= valDate:
             a.append(Time2Mat(startDate=valDate, endDate=d, conv=conv))
-            cpnPV.append(LoadDF(tenorArray, rateArray, a[i]) * cpnAmt)
+            cpnPV.append(
+                LoadDF(tenorArray, rateArray, a[i], dfType=dfType, freq=yearlyCpnNums)
+                * cpnAmt
+            )
             i += 1
     # 짧은 구간에 대해 실제 일수로 일할 계산한 쿠폰이 붙도록 로직 변경 필요
-    cpnPV[-1] = LoadDF(tenorArray, rateArray, a[-1]) * (cpnAmt + par)
+    cpnPV[-1] = LoadDF(
+        tenorArray, rateArray, a[-1], dfType=dfType, freq=yearlyCpnNums
+    ) * (cpnAmt + par)
     bondValue = sum(cpnPV)
     return bondValue
